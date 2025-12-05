@@ -1,6 +1,10 @@
 package com.ubertracker.app.ui
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -9,11 +13,15 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.ubertracker.app.data.Ride
 import java.text.SimpleDateFormat
+import com.ubertracker.app.ui.theme.*
 import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -30,14 +38,13 @@ fun AddRideDialog(
     var notes by remember { mutableStateOf("") }
     var showError by remember { mutableStateOf(false) }
 
+
     Dialog(onDismissRequest = onDismiss) {
         Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = Color(0xFF263238)
-            )
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = CyberBg), // Black Background
+            border = BorderStroke(1.dp, CyberPink) // Pink Border
+
         ) {
             Column(
                 modifier = Modifier
@@ -51,35 +58,38 @@ fun AddRideDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        "Add Manual Entry",
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = Color.White
+                        "MANUAL_OVERRIDE",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = CyberPink,
+                        fontFamily = FontFamily.Monospace
                     )
                     IconButton(onClick = onDismiss) {
-                        Icon(
-                            Icons.Default.Close,
-                            contentDescription = "Close",
-                            tint = Color.Gray
-                        )
+                        Icon(Icons.Default.Close, "Close", tint = CyberGray)
                     }
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))
 
+                val cyberTextFieldColors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = CyberPink,
+                    unfocusedBorderColor = CyberGray,
+                    focusedLabelColor = CyberPink,
+                    unfocusedLabelColor = CyberGray,
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = CyberGray,
+                    cursorColor = CyberPink
+                )
+
+                val cyberTextStyle = TextStyle(fontFamily = FontFamily.Monospace)
+
                 // Date Field
                 OutlinedTextField(
                     value = date,
                     onValueChange = { date = it },
-                    label = { Text("Date") },
+                    label = { Text("DATE_LOG") },
                     modifier = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        focusedBorderColor = Color(0xFF64B5F6),
-                        unfocusedBorderColor = Color.Gray,
-                        focusedLabelColor = Color(0xFF64B5F6),
-                        unfocusedLabelColor = Color.Gray
-                    )
+                    colors = cyberTextFieldColors,
+                    textStyle = cyberTextStyle
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -88,19 +98,10 @@ fun AddRideDialog(
                 OutlinedTextField(
                     value = fromAddress,
                     onValueChange = { fromAddress = it },
-                    label = { Text("From (Pickup Location)") },
-                    placeholder = { Text("e.g., Home, Office") },
+                    label = { Text("ORIGIN_POINT") },
                     modifier = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        focusedBorderColor = Color(0xFF64B5F6),
-                        unfocusedBorderColor = Color.Gray,
-                        focusedLabelColor = Color(0xFF64B5F6),
-                        unfocusedLabelColor = Color.Gray,
-                        focusedPlaceholderColor = Color.Gray,
-                        unfocusedPlaceholderColor = Color.Gray
-                    )
+                    colors = cyberTextFieldColors,
+                    textStyle = cyberTextStyle
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -109,19 +110,10 @@ fun AddRideDialog(
                 OutlinedTextField(
                     value = toAddress,
                     onValueChange = { toAddress = it },
-                    label = { Text("To (Drop Location)") },
-                    placeholder = { Text("e.g., Airport, Mall") },
+                    label = { Text("DESTINATION_POINT") },
                     modifier = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        focusedBorderColor = Color(0xFF64B5F6),
-                        unfocusedBorderColor = Color.Gray,
-                        focusedLabelColor = Color(0xFF64B5F6),
-                        unfocusedLabelColor = Color.Gray,
-                        focusedPlaceholderColor = Color.Gray,
-                        unfocusedPlaceholderColor = Color.Gray
-                    )
+                    colors = cyberTextFieldColors,
+                    textStyle = cyberTextStyle
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -129,34 +121,20 @@ fun AddRideDialog(
                 // Fare
                 OutlinedTextField(
                     value = fare,
-                    onValueChange = {
-                        // Only allow numbers and decimal point
-                        if (it.isEmpty() || it.matches(Regex("^\\d*\\.?\\d*$"))) {
-                            fare = it
-                        }
-                    },
-                    label = { Text("Fare (₹)") },
-                    placeholder = { Text("245.50") },
+                    onValueChange = { if (it.matches(Regex("^\\d*\\.?\\d*$"))) fare = it },
+                    label = { Text("COST_VALUE (INR)") },
                     modifier = Modifier.fillMaxWidth(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        focusedBorderColor = Color(0xFF64B5F6),
-                        unfocusedBorderColor = Color.Gray,
-                        focusedLabelColor = Color(0xFF64B5F6),
-                        unfocusedLabelColor = Color.Gray,
-                        focusedPlaceholderColor = Color.Gray,
-                        unfocusedPlaceholderColor = Color.Gray
-                    )
+                    colors = cyberTextFieldColors,
+                    textStyle = cyberTextStyle
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Payment Method Dropdown
                 var expanded by remember { mutableStateOf(false) }
                 val paymentMethods = listOf("UPI", "Card", "Cash", "Wallet")
 
+                // Payment Method Dropdown
                 ExposedDropdownMenuBox(
                     expanded = expanded,
                     onExpandedChange = { expanded = !expanded }
@@ -165,59 +143,56 @@ fun AddRideDialog(
                         value = payment,
                         onValueChange = {},
                         readOnly = true,
-                        label = { Text("Payment Method") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .menuAnchor(),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            focusedBorderColor = Color(0xFF64B5F6),
-                            unfocusedBorderColor = Color.Gray,
-                            focusedLabelColor = Color(0xFF64B5F6),
-                            unfocusedLabelColor = Color.Gray
-                        )
+                        label = { Text("PAYMENT_PROTOCOL") },
+                        trailingIcon = {
+                            ExposedDropdownMenuDefaults.TrailingIcon(
+                                expanded = expanded
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth().menuAnchor(),
+                        colors = cyberTextFieldColors,
+                        textStyle = cyberTextStyle
                     )
 
                     ExposedDropdownMenu(
                         expanded = expanded,
-                        onDismissRequest = { expanded = false }
+                        onDismissRequest = { expanded = false },
+                        modifier = Modifier.background(CyberBg).border(1.dp, CyberPink)
                     ) {
                         paymentMethods.forEach { method ->
                             DropdownMenuItem(
-                                text = { Text(method) },
+                                text = {
+                                    Text(
+                                        method,
+                                        fontFamily = FontFamily.Monospace,
+                                        color = Color.White
+                                    )
+                                },
                                 onClick = {
                                     payment = method
                                     expanded = false
-                                }
+                                },
+                                colors = MenuDefaults.itemColors(
+                                    textColor = Color.White,
+                                    leadingIconColor = CyberPink
+                                ),
+                                modifier = Modifier.background(CyberBg)
                             )
                         }
                     }
                 }
-
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Notes (Optional)
                 OutlinedTextField(
                     value = notes,
                     onValueChange = { notes = it },
-                    label = { Text("Notes (Optional)") },
-                    placeholder = { Text("Additional details") },
+                    label = { Text("ADDITIONAL_DATA") },
                     modifier = Modifier.fillMaxWidth(),
-                    minLines = 2,
-                    maxLines = 3,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        focusedBorderColor = Color(0xFF64B5F6),
-                        unfocusedBorderColor = Color.Gray,
-                        focusedLabelColor = Color(0xFF64B5F6),
-                        unfocusedLabelColor = Color.Gray,
-                        focusedPlaceholderColor = Color.Gray,
-                        unfocusedPlaceholderColor = Color.Gray
-                    )
+                    colors = cyberTextFieldColors,
+                    textStyle = cyberTextStyle
                 )
+
+                Spacer(modifier = Modifier.height(24.dp))
 
                 // Error Message
                 if (showError) {
@@ -234,38 +209,27 @@ fun AddRideDialog(
                 // Add Button
                 Button(
                     onClick = {
-                        if (fromAddress.isBlank() || toAddress.isBlank() || fare.isBlank()) {
-                            showError = true
-                        } else {
-                            val fareValue = fare.toDoubleOrNull()
-                            if (fareValue != null) {
-                                val ride = Ride(
-                                    date = date,
-                                    time = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date()),
-                                    fromAddress = fromAddress.trim(),
-                                    toAddress = toAddress.trim(),
-                                    fare = fareValue,
-                                    payment = payment,
-                                    tripId = "MAN${System.currentTimeMillis().toString().takeLast(8)}",
-                                    source = "manual",
-                                    notes = notes.trim().ifEmpty { null }
-                                )
-                                onAdd(ride)
-                            } else {
-                                showError = true
-                            }
+                        val fareValue = fare.toDoubleOrNull()
+                        if (fareValue != null && fromAddress.isNotBlank()) {
+                            val ride = Ride(
+                                date = date,
+                                time = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date()),
+                                fromAddress = fromAddress,
+                                toAddress = toAddress,
+                                fare = fareValue,
+                                payment = payment,
+                                tripId = "MAN${System.currentTimeMillis()}",
+                                source = "manual",
+                                notes = notes.ifEmpty { null }
+                            )
+                            onAdd(ride)
                         }
                     },
                     modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF9C27B0)
-                    )
+                    colors = ButtonDefaults.buttonColors(containerColor = CyberPink),
+                    shape = RoundedCornerShape(4.dp)
                 ) {
-                    Text(
-                        "Add Ride",
-                        modifier = Modifier.padding(8.dp),
-                        style = MaterialTheme.typography.titleMedium
-                    )
+                    Text("INJECT DATA", color = CyberBg, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
                 }
             }
         }

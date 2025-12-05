@@ -1,45 +1,103 @@
 package com.ubertracker.app.ui
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material.ripple.rememberRipple
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.automirrored.filled.Undo
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Notes
+import androidx.compose.material.icons.filled.PowerOff
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import android.content.Intent
-import android.net.Uri
-import android.util.Log
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.ui.window.Dialog
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.lifecycleScope
 import com.ubertracker.app.OneTimeEvent
 import com.ubertracker.app.RideViewModel
 import com.ubertracker.app.data.Ride
 import com.ubertracker.app.data.RideStats
+import com.ubertracker.app.ui.theme.CyberBg
+import com.ubertracker.app.ui.theme.CyberBlue
+import com.ubertracker.app.ui.theme.CyberGray
+import com.ubertracker.app.ui.theme.CyberGreen
+import com.ubertracker.app.ui.theme.CyberPink
 import com.ubertracker.app.ui.theme.UberTrackerTheme
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+
 
 class MainActivity : ComponentActivity() {
     private val viewModel: RideViewModel by viewModels()
@@ -89,16 +147,24 @@ fun MainScreen(viewModel: RideViewModel) {
     val syncing by viewModel.syncing.collectAsState()
     val stats by viewModel.stats.collectAsState()
 
+
     Scaffold(
+        containerColor = CyberBg,
         topBar = {
-            TopAppBar(
-                title = { Text("Uber Expense Tracker") },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFF1A1A2E)
+            CenterAlignedTopAppBar(
+                title = {
+                    Text(
+                        "CYBERPUNK TRACKER", // Caps like HTML
+                        style = MaterialTheme.typography.titleLarge,
+                        color = CyberPink
+                    )
+                },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = CyberBg
                 ),
                 actions = {
                     IconButton(onClick = { showSettingsDialog = true }) {
-                        Icon(Icons.Default.Settings, "Settings", tint = Color.White)
+                        Icon(Icons.Default.Settings, "Settings", tint = CyberBlue)
                     }
                 }
             )
@@ -106,9 +172,10 @@ fun MainScreen(viewModel: RideViewModel) {
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { showAddDialog = true },
-                containerColor = MaterialTheme.colorScheme.primary
+                containerColor = CyberPink, // Pink Button
+                contentColor = CyberBg
             ) {
-                Icon(Icons.Default.Add, "Add Ride")
+                Icon(Icons.Default.Add, "Add")
             }
         }
     ) { padding ->
@@ -117,11 +184,10 @@ fun MainScreen(viewModel: RideViewModel) {
                 modifier = Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                GmailConnectionCard(
-                    connected = gmailConnected,
-                    syncing = syncing,
-                    onConnect = { viewModel.connectGmail() },
-                    onSync = { viewModel.syncGmail() }
+                GmailStatusStrip(
+                    isConnected = gmailConnected,
+                    isSyncing = syncing,
+                    onConnect = { viewModel.connectGmail() }
                 )
                 StatsRow(stats)
             }
@@ -151,10 +217,9 @@ fun MainScreen(viewModel: RideViewModel) {
 
     if (showAddDialog) {
         AddRideDialog(
-            onDismiss = { showAddDialog = false },
+            onDismiss = { },
             onAdd = { ride ->
                 viewModel.addManualRide(ride)
-                showAddDialog = false
             }
         )
     }
@@ -162,57 +227,112 @@ fun MainScreen(viewModel: RideViewModel) {
     if (showSettingsDialog) {
         SettingsDialog(
             viewModel = viewModel,
-            onDismiss = { showSettingsDialog = false }
+            onDismiss = { }
         )
     }
     if (rideDetailToShow != null) {
         RideDetailsDialog(
             ride = rideDetailToShow!!,
-            onDismiss = { rideDetailToShow = null }
+            onDismiss = { }
         )
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PendingScreen(viewModel: RideViewModel, onShowDetails: (Ride) -> Unit) {
+fun PendingScreen(
+    viewModel: RideViewModel,
+    onShowDetails: (Ride) -> Unit
+) {
     val rides by viewModel.unclaimedRides.collectAsState()
     val selectedIds by viewModel.selectedRideIds.collectAsState()
+    // 1. Correctly observe the 'syncing' state from your ViewModel
+    val isSyncing by viewModel.syncing.collectAsState()
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        LazyColumn(contentPadding = PaddingValues(bottom = 80.dp)) {
-            items(rides) { ride ->
-                RideItem(
-                    ride = ride,
-                    isSelected = selectedIds.contains(ride.id),
-                    onClick = { viewModel.toggleSelection(ride.id) },
-                    onLongClick = { onShowDetails(ride) },      // Trigger Dialog
-                    onDelete = { viewModel.deleteRide(ride.id) } // Trigger Delete
-                )
+    // 2. Just create the state, don't manipulate it manually
+    val state = rememberPullToRefreshState()
+
+    Scaffold(
+        containerColor = Color.Transparent,
+        bottomBar = {
+            if (selectedIds.isNotEmpty()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center
+                ){
+                    Button(
+                        onClick = { viewModel.exportSelectedRides() },
+                        modifier = Modifier
+                            .fillMaxWidth(0.65f)
+                            .padding (16.dp)
+                            .height(56.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = CyberGreen),
+                        shape = RoundedCornerShape(4.dp)
+                    ) {
+                        Icon(Icons.Default.Download, null, tint = CyberBg)
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            "CLAIM (${selectedIds.size})",
+                            color = CyberBg,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                }
             }
         }
-
-        // Export Button
-        if (selectedIds.isNotEmpty()) {
-            Button(
-                onClick = { viewModel.exportSelectedRides() },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .align(Alignment.BottomCenter)
-                    .padding(16.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF4CAF50)
+    ) { padding ->
+        // 3. The Box handles the logic. No extra code needed.
+        PullToRefreshBox(
+            isRefreshing = isSyncing,
+            onRefresh = { viewModel.syncGmail() }, // This triggers when you pull down
+            state = state,
+            modifier = Modifier.padding(padding),
+            indicator = {
+                // Custom Cyberpunk Spinner
+                PullToRefreshDefaults.Indicator(
+                    state = state,
+                    isRefreshing = isSyncing,
+                    containerColor = CyberBg,
+                    color = CyberGreen,
+                    modifier = Modifier.align(Alignment.TopCenter)
                 )
+            }
+        ) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = 16.dp)
             ) {
-                Row(modifier = Modifier.padding(horizontal = 16.dp)) {
-                    Icon(Icons.Default.Download, null)
-                    Spacer(Modifier.width(8.dp))
-                    Text("Claim (${selectedIds.size})")
+                if (rides.isEmpty()) {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 64.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                "NO_PENDING_DATA",
+                                color = CyberGray,
+                                fontFamily = FontFamily.Monospace
+                            )
+                        }
+                    }
+                }
+
+                items(rides) { ride ->
+                    RideItem(
+                        ride = ride,
+                        isSelected = selectedIds.contains(ride.id),
+                        onClick = { viewModel.toggleSelection(ride.id) },
+                        onLongClick = { onShowDetails(ride) },
+                        onDelete = { viewModel.deleteRide(ride.id) }
+                    )
                 }
             }
         }
     }
 }
-
 @Composable
 fun HistoryScreen(
     viewModel: RideViewModel,
@@ -238,23 +358,26 @@ fun RideItem(
     ride: Ride,
     isSelected: Boolean,
     onClick: () -> Unit,
-    onLongClick: () -> Unit, // New
-    onDelete: () -> Unit     // New
+    onLongClick: () -> Unit,
+    onDelete: () -> Unit
 ) {
+    val borderColor = if (isSelected) CyberBlue else CyberPink
+    val context = LocalContext.current // Context needed to open the browser
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(8.dp)
-            // Changed to combinedClickable to support Long Press
             .combinedClickable(
                 interactionSource = remember { MutableInteractionSource() },
-                indication = null, // Fixes the crash by disabling the incompatible ripple
+                indication = null,
                 onClick = onClick,
                 onLongClick = onLongClick
             ),
         colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) Color(0xFF303F9F) else Color(0xFF263238)
-        )
+            containerColor = Color.Black.copy(alpha = 0.3f)
+        ),
+        border = BorderStroke(1.dp, borderColor)
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
@@ -262,21 +385,53 @@ fun RideItem(
         ) {
             Checkbox(
                 checked = isSelected,
-                onCheckedChange = { onClick() }
+                onCheckedChange = { onClick() },
+                colors = CheckboxDefaults.colors(
+                    checkedColor = CyberBlue,
+                    uncheckedColor = CyberPink,
+                    checkmarkColor = CyberBg
+                )
             )
             Column(modifier = Modifier.weight(1f).padding(start = 8.dp)) {
                 Text(ride.date, style = MaterialTheme.typography.titleMedium, color = Color.White)
-                Text(ride.fromAddress, style = MaterialTheme.typography.bodySmall, color = Color.Gray, maxLines = 1)
-                Text("₹${ride.fare}", style = MaterialTheme.typography.titleLarge, color = Color(0xFF4CAF50))
+                Text(ride.fromAddress, style = MaterialTheme.typography.bodySmall, color = CyberGray, maxLines = 1)
+                Text("₹${ride.fare}", style = MaterialTheme.typography.titleLarge, color = CyberPink)
             }
-            // New Delete Button
-            IconButton(onClick = onDelete) {
-                Icon(Icons.Default.Delete, "Delete", tint = Color(0xFFEF5350))
+
+            // --- ACTION BUTTONS ROW ---
+            Row(verticalAlignment = Alignment.CenterVertically) {
+
+                // 1. RECEIPT DOWNLOAD BUTTON (Visible only if URL exists)
+                if (!ride.receiptUrl.isNullOrEmpty()) {
+                    IconButton(
+                        onClick = {
+                            try {
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(ride.receiptUrl))
+                                context.startActivity(intent)
+                            } catch (e: Exception) {
+                                e.printStackTrace() // Log error if no browser found
+                            }
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Download,
+                            contentDescription = "Download Receipt",
+                            tint = CyberGreen // Green for "Get/Download"
+                        )
+                    }
+
+                    // The "gap" you requested
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
+
+                // 2. DELETE BUTTON
+                IconButton(onClick = onDelete) {
+                    Icon(Icons.Default.Delete, "Delete", tint = CyberBlue)
+                }
             }
         }
     }
 }
-
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ClaimedRideItem(
@@ -323,76 +478,59 @@ fun ClaimedRideItem(
 }
 
 @Composable
-fun GmailConnectionCard(
-    connected: Boolean,
-    syncing: Boolean,
-    onConnect: () -> Unit,
-    onSync: () -> Unit
+fun GmailStatusStrip(
+    isConnected: Boolean,
+    isSyncing: Boolean,
+    onConnect: () -> Unit
 ) {
+    val statusColor = if (isConnected) CyberGreen else CyberBlue
+    val statusText = if (isConnected) "SYSTEM::ONLINE" else "SYSTEM::OFFLINE // TAP TO CONNECT"
+
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = if (connected) Color(0xFF1B5E20) else Color(0xFF263238)
-        )
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 4.dp)
+            .height(48.dp) // Fixed height strip
+            .clickable(enabled = !isConnected) { onConnect() }, // Only clickable if disconnected
+        colors = CardDefaults.cardColors(containerColor = CyberBg),
+        border = BorderStroke(1.dp, statusColor.copy(alpha = 0.8f))
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Icon(
-                    if (connected) Icons.Default.CheckCircle else Icons.Default.Email,
-                    contentDescription = null,
-                    tint = if (connected) Color(0xFF4CAF50) else Color(0xFF64B5F6),
-                    modifier = Modifier.size(32.dp)
+            // Background Progress Bar (Visible only when syncing)
+            if (isSyncing) {
+                LinearProgressIndicator(
+                    modifier = Modifier.fillMaxSize().alpha(0.2f),
+                    color = statusColor,
+                    trackColor = Color.Transparent
                 )
-                Column {
-                    Text(
-                        if (connected) "Gmail Connected" else "Connect Gmail",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = Color.White
-                    )
-                    if (!connected) {
-                        Text(
-                            "Auto-fetch receipts",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color.Gray
-                        )
-                    }
-                }
             }
 
-            if (connected) {
-                Button(
-                    onClick = onSync,
-                    enabled = !syncing,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF2E7D32)
-                    )
-                ) {
-                    Icon(
-                        Icons.Default.Refresh,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(Modifier.width(4.dp))
-                    Text(if (syncing) "Syncing..." else "Sync")
-                }
-            } else {
-                Button(onClick = onConnect) {
-                    Text("Connect")
-                }
+            // Content
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Icon(
+                    imageVector = if (isConnected) Icons.Default.CheckCircle else Icons.Default.PowerOff,
+                    contentDescription = null,
+                    tint = statusColor,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = if (isSyncing) "SYNC_PROTOCOL_INITIATED..." else statusText,
+                    color = statusColor,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold
+                )
             }
         }
     }
 }
-
 @Composable
 fun StatsRow(stats: RideStats) {
     Row(
@@ -418,22 +556,15 @@ fun StatsRow(stats: RideStats) {
 fun StatCard(title: String, value: String, color: Color, modifier: Modifier = Modifier) {
     Card(
         modifier = modifier,
-        colors = CardDefaults.cardColors(containerColor = color)
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        border = BorderStroke(1.dp, color)
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(16.dp).fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(
-                value,
-                style = MaterialTheme.typography.headlineMedium,
-                color = Color.White
-            )
-            Text(
-                title,
-                style = MaterialTheme.typography.bodySmall,
-                color = Color.White.copy(alpha = 0.8f)
-            )
+            Text(title.uppercase(), style = MaterialTheme.typography.labelSmall, color = color)
+            Text(value, style = MaterialTheme.typography.titleLarge, color = color)
         }
     }
 }
@@ -540,126 +671,55 @@ fun RideCard(ride: Ride, onDelete: () -> Unit) {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsDialog(
-    viewModel: RideViewModel,
-    onDismiss: () -> Unit
-) {
+fun SettingsDialog(viewModel: RideViewModel, onDismiss: () -> Unit) {
     var senderEmail by remember { mutableStateOf("") }
-    var showError by remember { mutableStateOf(false) }
-
-    // Load current email on first composition
-    LaunchedEffect(Unit) {
-        senderEmail = viewModel.getSenderEmail()
-    }
+    LaunchedEffect(Unit) { senderEmail = viewModel.getSenderEmail() }
 
     Dialog(onDismissRequest = onDismiss) {
         Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = Color(0xFF263238)
-            )
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = CyberBg),
+            border = BorderStroke(1.dp, CyberPink) // Pink Border for Settings
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(24.dp)
-            ) {
-                // Header
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        "Settings",
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = Color.White
-                    )
-                    IconButton(onClick = onDismiss) {
-                        Icon(
-                            Icons.Default.Close,
-                            contentDescription = "Close",
-                            tint = Color.Gray
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                // Sender Email Field
+            Column(modifier = Modifier.padding(24.dp)) {
                 Text(
-                    "Sender Email Address",
+                    "SYSTEM_CONFIG",
                     style = MaterialTheme.typography.titleMedium,
-                    color = Color.White,
-                    modifier = Modifier.padding(bottom = 8.dp)
+                    color = CyberPink,
+                    modifier = Modifier.padding(bottom = 24.dp)
                 )
 
-                Text(
-                    "Email address to search for receipts (e.g., no-reply@uber.com)",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.Gray,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
-
+                // Cyberpunk Text Field
                 OutlinedTextField(
                     value = senderEmail,
-                    onValueChange = {
-                        senderEmail = it
-                        showError = false
-                    },
-                    label = { Text("Email Address") },
-                    placeholder = { Text("no-reply@uber.com") },
+                    onValueChange = { senderEmail = it },
+                    label = { Text("TARGET_EMAIL_ADDRESS") },
                     modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = CyberPink,
+                        unfocusedBorderColor = CyberGray,
+                        focusedLabelColor = CyberPink,
+                        unfocusedLabelColor = CyberGray,
                         focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        focusedBorderColor = Color(0xFF64B5F6),
-                        unfocusedBorderColor = Color.Gray,
-                        focusedLabelColor = Color(0xFF64B5F6),
-                        unfocusedLabelColor = Color.Gray,
-                        focusedPlaceholderColor = Color.Gray,
-                        unfocusedPlaceholderColor = Color.Gray
-                    )
+                        unfocusedTextColor = CyberGray,
+                        cursorColor = CyberPink
+                    ),
+                    textStyle = TextStyle(fontFamily = FontFamily.Monospace)
                 )
-
-                // Error Message
-                if (showError) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        "Please enter a valid email address",
-                        color = Color(0xFFEF5350),
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // Save Button
                 Button(
                     onClick = {
-                        val emailPattern = android.util.Patterns.EMAIL_ADDRESS
-                        if (senderEmail.isBlank() || !emailPattern.matcher(senderEmail).matches()) {
-                            showError = true
-                        } else {
-                            viewModel.setSenderEmail(senderEmail)
-                            onDismiss()
-                        }
+                        viewModel.setSenderEmail(senderEmail)
+                        onDismiss()
                     },
                     modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF9C27B0)
-                    )
+                    colors = ButtonDefaults.buttonColors(containerColor = CyberPink),
+                    shape = RoundedCornerShape(4.dp)
                 ) {
-                    Text(
-                        "Save",
-                        modifier = Modifier.padding(8.dp),
-                        style = MaterialTheme.typography.titleMedium
-                    )
+                    Text("SAVE CONFIG", color = CyberBg, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -667,31 +727,52 @@ fun SettingsDialog(
 }
 @Composable
 fun RideDetailsDialog(ride: Ride, onDismiss: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = Color(0xFF263238),
-        title = {
-            Text("Ride Details", color = Color.White)
-        },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                DetailRow("Date", "${ride.date} at ${ride.time ?: "N/A"}")
-                DetailRow("Amount", "₹${ride.fare}")
-                DetailRow("Pickup", ride.fromAddress)
-                DetailRow("Drop", ride.toAddress)
-                DetailRow("Payment", ride.payment)
-                DetailRow("Source", if(ride.source == "gmail_auto") "Gmail Auto-Sync" else "Manual Entry")
-                DetailRow("Trip ID", ride.tripId)
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Close", color = Color(0xFF64B5F6))
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = CyberBg),
+            border = BorderStroke(1.dp, CyberBlue) // Blue Border for Info
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text(
+                    "RIDE_DETAILS_LOG",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = CyberBlue,
+                    fontFamily = FontFamily.Monospace
+                )
+
+                // Specific Fields Requested
+                DetailRow("DATE", "${ride.date} at ${ride.time ?: "N/A"}")
+                DetailRow("AMOUNT", "₹${ride.fare}")
+                DetailRow("PICKUP", ride.fromAddress)
+                DetailRow("DROP", ride.toAddress)
+                DetailRow("PAYMENT", ride.payment)
+
+                // Source Logic
+                val sourceText = if (ride.source == "gmail_auto") "GMAIL AUTO-SYNC" else "MANUAL ENTRY"
+                DetailRow("SOURCE", sourceText)
+
+                // Extra field often useful for debugging
+                DetailRow("TRIP_ID", ride.tripId)
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Close Button
+                Button(
+                    onClick = onDismiss,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = CyberBlue),
+                    shape = RoundedCornerShape(4.dp)
+                ) {
+                    Text("CLOSE TERMINAL", color = CyberBg, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                }
             }
         }
-    )
+    }
 }
-
 @Composable
 fun DetailRow(label: String, value: String) {
     Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
