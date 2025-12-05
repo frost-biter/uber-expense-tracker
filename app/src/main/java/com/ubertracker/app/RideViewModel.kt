@@ -18,6 +18,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 import android.util.Log
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.map
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -32,9 +35,6 @@ class RideViewModel(application: Application) : AndroidViewModel(application) {
     private val _rides = MutableStateFlow<List<Ride>>(emptyList())
     val rides: StateFlow<List<Ride>> = _rides.asStateFlow()
 
-    private val _stats = MutableStateFlow(RideStats())
-    val stats: StateFlow<RideStats> = _stats.asStateFlow()
-
     private val _gmailConnected = MutableStateFlow(false)
     val gmailConnected: StateFlow<Boolean> = _gmailConnected.asStateFlow()
 
@@ -44,61 +44,97 @@ class RideViewModel(application: Application) : AndroidViewModel(application) {
     private val _oneTimeEvent = MutableSharedFlow<OneTimeEvent>()
     val oneTimeEvent = _oneTimeEvent.asSharedFlow()
 
-    init {
-        // Load rides asynchronously to avoid blocking initialization
-        loadRides()
-        checkGmailConnection()
+    val unclaimedRides: StateFlow<List<Ride>> = rideDao.getUnclaimedRides()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val claimedRides: StateFlow<List<Ride>> = rideDao.getClaimedRides()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    private val _selectedRideIds = MutableStateFlow<Set<Long>>(emptySet())
+    val selectedRideIds = _selectedRideIds.asStateFlow()
+
+    fun toggleSelection(rideId: Long) {
+        val current = _selectedRideIds.value
+        if (current.contains(rideId)) {
+            _selectedRideIds.value = current - rideId
+        } else {
+            _selectedRideIds.value = current + rideId
+        }
+    }
+    fun clearSelection() {
+        _selectedRideIds.value = emptySet()
     }
 
-    private fun loadRides() {
-        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            try {
-                // Ensure database is initialized
-                val dao = rideDao
+    fun exportSelectedRides() {
+        viewModelScope.launch {
+            val ids = _selectedRideIds.value
+            if (ids.isEmpty()) return@launch
 
-                dao.getAllRides()
-                    .catch { e ->
-                        Log.e("RideViewModel", "Error in Flow collection", e)
-                        e.printStackTrace()
-                        _rides.value = emptyList()
-                        _stats.value = RideStats()
-                    }
-                    .collect { rideList ->
-                        try {
-                            _rides.value = rideList
-                            calculateStats(rideList)
-                            Log.d("RideViewModel", "Loaded ${rideList.size} rides")
-                        } catch (e: Exception) {
-                            Log.e("RideViewModel", "Error processing ride list", e)
-                            e.printStackTrace()
-                        }
-                    }
-            } catch (e: Exception) {
-                Log.e("RideViewModel", "Error initializing database or loading rides", e)
-                e.printStackTrace()
-                // Set empty state to prevent crash
-                _rides.value = emptyList()
-                _stats.value = RideStats()
+            // 1. Get the actual ride objects
+            val allRides = unclaimedRides.value
+            val ridesToExport = allRides.filter { ids.contains(it.id) }
+
+            if (ridesToExport.isNotEmpty()) {
+                try {
+                    // 2. Generate Excel
+                    val file = excelExporter.generateExcel(ridesToExport)
+                    excelExporter.shareFile(file)
+
+                    // 3. Mark as Claimed in DB
+                    rideDao.updateClaimStatus(ids.toList(), true)
+
+                    // 4. Clear Selection
+                    clearSelection()
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
             }
         }
     }
 
-    private fun calculateStats(rideList: List<Ride>) {
+    fun unclaimRides(rideIds: List<Long>) {
+        viewModelScope.launch {
+            rideDao.updateClaimStatus(rideIds, false)
+        }
+    }
+
+    init {
+
+        checkGmailConnection()
+    }
+    val stats: StateFlow<RideStats> = rideDao.getAllRides()
+        .map { rides ->
+            // This runs every time the database changes
+            calculateStatsValues(rides)
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = RideStats()
+        )
+
+    private fun calculateStatsValues(rideList: List<Ride>): RideStats {
         val calendar = Calendar.getInstance()
         val currentMonth = calendar.get(Calendar.MONTH)
         val currentYear = calendar.get(Calendar.YEAR)
 
         val monthRides = rideList.filter { ride ->
-            val rideDate = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).parse(ride.date)
-            val rideCal = Calendar.getInstance().apply { time = rideDate ?: Date() }
-            rideCal.get(Calendar.MONTH) == currentMonth &&
-                    rideCal.get(Calendar.YEAR) == currentYear
+            try {
+                val rideDate = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).parse(ride.date)
+                val rideCal = Calendar.getInstance().apply { time = rideDate ?: Date() }
+                rideCal.get(Calendar.MONTH) == currentMonth &&
+                        rideCal.get(Calendar.YEAR) == currentYear
+            } catch (e: Exception) {
+                false
+            }
         }
 
-        _stats.value = RideStats(
+        return RideStats(
             totalRides = monthRides.size,
             totalAmount = monthRides.sumOf { it.fare },
-            manualEntries = monthRides.count { it.source == "manual" }
+            manualEntries = monthRides.count { it.source == "manual" },
+            claimedAmount = monthRides.filter { it.isClaimed }.sumOf { it.fare },
+            unclaimedAmount = monthRides.filter { !it.isClaimed }.sumOf { it.fare }
         )
     }
 

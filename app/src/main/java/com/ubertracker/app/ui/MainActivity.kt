@@ -5,12 +5,18 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.ripple.rememberRipple
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -67,15 +73,17 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(viewModel: RideViewModel) {
     var showAddDialog by remember { mutableStateOf(false) }
     var showSettingsDialog by remember { mutableStateOf(false) }
-    val rides by viewModel.rides.collectAsState()
-    val stats by viewModel.stats.collectAsState()
+    val pagerState = rememberPagerState(pageCount = { 2 })
+    val scope = rememberCoroutineScope()
+    val titles = listOf("Pending", "History")
     val gmailConnected by viewModel.gmailConnected.collectAsState()
     val syncing by viewModel.syncing.collectAsState()
+    val stats by viewModel.stats.collectAsState()
 
     Scaffold(
         topBar = {
@@ -100,95 +108,32 @@ fun MainScreen(viewModel: RideViewModel) {
             }
         }
     ) { padding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            Color(0xFF1A1A2E),
-                            Color(0xFF16213E),
-                            Color(0xFF0F3460)
-                        )
-                    )
-                )
-                .padding(padding)
-        ) {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(16.dp),
+        Column(modifier = Modifier.padding(padding)) {
+            Column(
+                modifier = Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // Gmail Connection Card
-                item {
-                    GmailConnectionCard(
-                        connected = gmailConnected,
-                        syncing = syncing,
-                        onConnect = { viewModel.connectGmail() },
-                        onSync = { viewModel.syncGmail() }
+                GmailConnectionCard(
+                    connected = gmailConnected,
+                    syncing = syncing,
+                    onConnect = { viewModel.connectGmail() },
+                    onSync = { viewModel.syncGmail() }
+                )
+                StatsRow(stats)
+            }
+            TabRow(selectedTabIndex = pagerState.currentPage) {
+                titles.forEachIndexed { index, title ->
+                    Tab(
+                        selected = pagerState.currentPage == index,
+                        onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
+                        text = { Text(title) }
                     )
                 }
-
-                // Stats Cards
-                item {
-                    StatsRow(stats)
-                }
-
-                // Action Buttons
-                item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Button(
-                            onClick = { showAddDialog = true },
-                            modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFF9C27B0)
-                            )
-                        ) {
-                            Icon(Icons.Default.Add, null, modifier = Modifier.size(20.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text("Manual Entry")
-                        }
-
-                        Button(
-                            onClick = { viewModel.exportToExcel() },
-                            modifier = Modifier.weight(1f),
-                            enabled = rides.isNotEmpty(),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFF4CAF50)
-                            )
-                        ) {
-                            Icon(Icons.Default.Download, null, modifier = Modifier.size(20.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text("Export")
-                        }
-                    }
-                }
-
-                // Rides List Header
-                item {
-                    Text(
-                        "Recent Rides",
-                        style = MaterialTheme.typography.titleLarge,
-                        color = Color.White
-                    )
-                }
-
-                // Rides
-                if (rides.isEmpty()) {
-                    item {
-                        EmptyState()
-                    }
-                } else {
-                    items(rides) { ride ->
-                        RideCard(
-                            ride = ride,
-                            onDelete = { viewModel.deleteRide(ride.id) }
-                        )
-                    }
+            }
+            HorizontalPager(state = pagerState) {
+                when (it) {
+                    0 -> PendingScreen(viewModel)
+                    1 -> HistoryScreen(viewModel)
                 }
             }
         }
@@ -211,6 +156,115 @@ fun MainScreen(viewModel: RideViewModel) {
         )
     }
 }
+
+@Composable
+fun PendingScreen(viewModel: RideViewModel) {
+    val rides by viewModel.unclaimedRides.collectAsState()
+    val selectedIds by viewModel.selectedRideIds.collectAsState()
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(contentPadding = PaddingValues(bottom = 80.dp)) {
+            items(rides) { ride ->
+                RideItem(
+                    ride = ride,
+                    isSelected = selectedIds.contains(ride.id),
+                    onClick = { viewModel.toggleSelection(ride.id) }
+                )
+            }
+        }
+
+        // Export Button
+        if (selectedIds.isNotEmpty()) {
+            Button(
+                onClick = { viewModel.exportSelectedRides() },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.BottomCenter)
+                    .padding(16.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF4CAF50)
+                )
+            ) {
+                Row(modifier = Modifier.padding(horizontal = 16.dp)) {
+                    Icon(Icons.Default.Download, null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Claim (${selectedIds.size})")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun HistoryScreen(viewModel: RideViewModel) {
+    val rides by viewModel.claimedRides.collectAsState()
+
+    LazyColumn {
+        items(rides) { ride ->
+            ClaimedRideItem(ride = ride, onUnclaim = { viewModel.unclaimRides(listOf(ride.id)) })
+        }
+    }
+}
+
+@Composable
+fun RideItem(ride: Ride, isSelected: Boolean, onClick: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(8.dp)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = rememberRipple(bounded = true),
+                onClick = onClick
+            ),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isSelected) Color(0xFF303F9F) else Color(0xFF263238)
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Checkbox(
+                checked = isSelected,
+                onCheckedChange = { onClick() }
+            )
+            Column(modifier = Modifier.padding(start = 8.dp)) {
+                Text(ride.date, style = MaterialTheme.typography.titleMedium, color = Color.White)
+                Text(ride.fromAddress, style = MaterialTheme.typography.bodySmall, color = Color.Gray, maxLines = 1)
+                Text("₹${ride.fare}", style = MaterialTheme.typography.titleLarge, color = Color(0xFF4CAF50))
+            }
+        }
+    }
+}
+
+@Composable
+fun ClaimedRideItem(ride: Ride, onUnclaim: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(8.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Color(0xFF37474F)
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column {
+                Text(ride.date, style = MaterialTheme.typography.titleMedium, color = Color.White)
+                Text(ride.fromAddress, style = MaterialTheme.typography.bodySmall, color = Color.Gray, maxLines = 1)
+                Text("₹${ride.fare}", style = MaterialTheme.typography.titleLarge, color = Color.White)
+            }
+            IconButton(onClick = onUnclaim) {
+                Icon(Icons.Default.Undo, "Unclaim")
+            }
+        }
+    }
+}
+
 
 @Composable
 fun GmailConnectionCard(
@@ -290,21 +344,15 @@ fun StatsRow(stats: RideStats) {
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         StatCard(
-            title = "Rides",
-            value = stats.totalRides.toString(),
-            color = Color(0xFF2196F3),
-            modifier = Modifier.weight(1f)
-        )
-        StatCard(
-            title = "Amount",
-            value = "₹${String.format("%.2f", stats.totalAmount)}",
-            color = Color(0xFF4CAF50),
-            modifier = Modifier.weight(1f)
-        )
-        StatCard(
-            title = "Manual",
-            value = stats.manualEntries.toString(),
+            title = "Unclaimed",
+            value = "₹${String.format("%.2f", stats.unclaimedAmount)}",
             color = Color(0xFFFF9800),
+            modifier = Modifier.weight(1f)
+        )
+        StatCard(
+            title = "Claimed",
+            value = "₹${String.format("%.2f", stats.claimedAmount)}",
+            color = Color(0xFF4CAF50),
             modifier = Modifier.weight(1f)
         )
     }

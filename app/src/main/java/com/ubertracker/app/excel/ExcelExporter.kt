@@ -49,12 +49,11 @@ class ExcelExporter(private val context: Context) {
 
         // Save to file
         val fileName = generateFileName()
-        val file = File(getExportDirectory(), fileName)
+        val file = File(context.cacheDir, fileName)
 
-        FileOutputStream(file).use { outputStream ->
-            workbook.write(outputStream)
+        FileOutputStream(file).use {
+            workbook.write(it)
         }
-
         workbook.close()
 
         return file
@@ -108,11 +107,10 @@ class ExcelExporter(private val context: Context) {
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             putExtra(Intent.EXTRA_STREAM, uri)
-            putExtra(Intent.EXTRA_SUBJECT, "Uber Expenses - ${generateFileName()}")
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
 
-        val chooser = Intent.createChooser(intent, "Share Expense Report")
+        val chooser = Intent.createChooser(intent, "Share Claim Report")
         chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         context.startActivity(chooser)
     }

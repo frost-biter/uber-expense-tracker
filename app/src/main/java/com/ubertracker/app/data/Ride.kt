@@ -7,7 +7,7 @@ import androidx.room.*
     indices = [
         Index(value = ["date"]),
         Index(value = ["tripId"], unique = true),
-        Index(value = ["syncedToExcel"])
+        Index(value = ["isClaimed"])
     ]
 )
 data class Ride(
@@ -41,17 +41,14 @@ data class Ride(
     @ColumnInfo(name = "source")
     val source: String, // "auto" or "manual"
 
-    @ColumnInfo(name = "pdfPath")
-    val pdfPath: String? = null,
-
     @ColumnInfo(name = "gmailMessageId")
     val gmailMessageId: String? = null,
 
     @ColumnInfo(name = "isBusiness")
     val isBusiness: Boolean = true,
 
-    @ColumnInfo(name = "syncedToExcel")
-    val syncedToExcel: Boolean = false,
+    @ColumnInfo(name = "isClaimed")
+    val isClaimed: Boolean = false,
 
     @ColumnInfo(name = "notes")
     val notes: String? = null,
@@ -61,6 +58,5 @@ data class Ride(
 
     @ColumnInfo(name = "receiptUrl")
     val receiptUrl: String? = null
-
 
 )

@@ -11,8 +11,8 @@ import net.sqlcipher.database.SupportFactory
 
 @Database(
     entities = [Ride::class],
-    version = 1,
-    exportSchema = true
+    version = 2,
+    exportSchema = false
 )
 @TypeConverters(Converters::class)
 abstract class RideDatabase : RoomDatabase() {
@@ -25,7 +25,13 @@ abstract class RideDatabase : RoomDatabase() {
 
         fun getDatabase(context: Context): RideDatabase {
             return INSTANCE ?: synchronized(this) {
-                val instance = buildDatabase(context)
+                val instance = Room.databaseBuilder(
+                    context.applicationContext,
+                    RideDatabase::class.java,
+                    "uber_expenses.db"
+                )
+                    .fallbackToDestructiveMigration() // VITAL: Wipes DB if version changes
+                    .build()
                 INSTANCE = instance
                 instance
             }
