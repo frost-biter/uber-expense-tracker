@@ -27,6 +27,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import android.content.Intent
 import android.net.Uri
+import android.util.Log
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.lifecycleScope
@@ -78,6 +81,7 @@ class MainActivity : ComponentActivity() {
 fun MainScreen(viewModel: RideViewModel) {
     var showAddDialog by remember { mutableStateOf(false) }
     var showSettingsDialog by remember { mutableStateOf(false) }
+    var rideDetailToShow by remember { mutableStateOf<Ride?>(null) }
     val pagerState = rememberPagerState(pageCount = { 2 })
     val scope = rememberCoroutineScope()
     val titles = listOf("Pending", "History")
@@ -132,8 +136,14 @@ fun MainScreen(viewModel: RideViewModel) {
             }
             HorizontalPager(state = pagerState) {
                 when (it) {
-                    0 -> PendingScreen(viewModel)
-                    1 -> HistoryScreen(viewModel)
+                    0 -> PendingScreen(
+                        viewModel = viewModel,
+                        onShowDetails = { ride -> rideDetailToShow = ride }
+                    )
+                    1 -> HistoryScreen(
+                        viewModel = viewModel,
+                        onShowDetails = { ride -> rideDetailToShow = ride }
+                    )
                 }
             }
         }
@@ -155,10 +165,16 @@ fun MainScreen(viewModel: RideViewModel) {
             onDismiss = { showSettingsDialog = false }
         )
     }
+    if (rideDetailToShow != null) {
+        RideDetailsDialog(
+            ride = rideDetailToShow!!,
+            onDismiss = { rideDetailToShow = null }
+        )
+    }
 }
 
 @Composable
-fun PendingScreen(viewModel: RideViewModel) {
+fun PendingScreen(viewModel: RideViewModel, onShowDetails: (Ride) -> Unit) {
     val rides by viewModel.unclaimedRides.collectAsState()
     val selectedIds by viewModel.selectedRideIds.collectAsState()
 
@@ -168,7 +184,9 @@ fun PendingScreen(viewModel: RideViewModel) {
                 RideItem(
                     ride = ride,
                     isSelected = selectedIds.contains(ride.id),
-                    onClick = { viewModel.toggleSelection(ride.id) }
+                    onClick = { viewModel.toggleSelection(ride.id) },
+                    onLongClick = { onShowDetails(ride) },      // Trigger Dialog
+                    onDelete = { viewModel.deleteRide(ride.id) } // Trigger Delete
                 )
             }
         }
@@ -196,26 +214,43 @@ fun PendingScreen(viewModel: RideViewModel) {
 }
 
 @Composable
-fun HistoryScreen(viewModel: RideViewModel) {
+fun HistoryScreen(
+    viewModel: RideViewModel,
+    onShowDetails: (Ride) -> Unit // New Parameter
+) {
     val rides by viewModel.claimedRides.collectAsState()
 
-    LazyColumn {
+    LazyColumn(contentPadding = PaddingValues(bottom = 16.dp)) {
         items(rides) { ride ->
-            ClaimedRideItem(ride = ride, onUnclaim = { viewModel.unclaimRides(listOf(ride.id)) })
+            ClaimedRideItem(
+                ride = ride,
+                onUnclaim = { viewModel.unclaimRides(listOf(ride.id)) },
+                onLongClick = { onShowDetails(ride) },       // Trigger Dialog
+                onDelete = { viewModel.deleteRide(ride.id) } // Trigger Delete
+            )
         }
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun RideItem(ride: Ride, isSelected: Boolean, onClick: () -> Unit) {
+fun RideItem(
+    ride: Ride,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit, // New
+    onDelete: () -> Unit     // New
+) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(8.dp)
-            .clickable(
+            // Changed to combinedClickable to support Long Press
+            .combinedClickable(
                 interactionSource = remember { MutableInteractionSource() },
-                indication = rememberRipple(bounded = true),
-                onClick = onClick
+                indication = null, // Fixes the crash by disabling the incompatible ripple
+                onClick = onClick,
+                onLongClick = onLongClick
             ),
         colors = CardDefaults.cardColors(
             containerColor = if (isSelected) Color(0xFF303F9F) else Color(0xFF263238)
@@ -229,42 +264,63 @@ fun RideItem(ride: Ride, isSelected: Boolean, onClick: () -> Unit) {
                 checked = isSelected,
                 onCheckedChange = { onClick() }
             )
-            Column(modifier = Modifier.padding(start = 8.dp)) {
+            Column(modifier = Modifier.weight(1f).padding(start = 8.dp)) {
                 Text(ride.date, style = MaterialTheme.typography.titleMedium, color = Color.White)
                 Text(ride.fromAddress, style = MaterialTheme.typography.bodySmall, color = Color.Gray, maxLines = 1)
                 Text("₹${ride.fare}", style = MaterialTheme.typography.titleLarge, color = Color(0xFF4CAF50))
+            }
+            // New Delete Button
+            IconButton(onClick = onDelete) {
+                Icon(Icons.Default.Delete, "Delete", tint = Color(0xFFEF5350))
             }
         }
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun ClaimedRideItem(ride: Ride, onUnclaim: () -> Unit) {
+fun ClaimedRideItem(
+    ride: Ride,
+    onUnclaim: () -> Unit,
+    onLongClick: () -> Unit, // New
+    onDelete: () -> Unit     // New
+) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(8.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = Color(0xFF37474F)
-        )
+            .padding(8.dp)
+            // Added Long Press capability
+            .combinedClickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null, // Fixes the crash by disabling the incompatible ripple
+                onClick = {},
+                onLongClick = onLongClick
+            ),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF37474F))
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Column {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(ride.date, style = MaterialTheme.typography.titleMedium, color = Color.White)
                 Text(ride.fromAddress, style = MaterialTheme.typography.bodySmall, color = Color.Gray, maxLines = 1)
                 Text("₹${ride.fare}", style = MaterialTheme.typography.titleLarge, color = Color.White)
             }
-            IconButton(onClick = onUnclaim) {
-                Icon(Icons.Default.Undo, "Unclaim")
+
+            // Action Buttons
+            Row {
+                IconButton(onClick = onUnclaim) {
+                    Icon(Icons.AutoMirrored.Filled.Undo, "Unclaim", tint = Color(0xFFFFB74D))
+                }
+                IconButton(onClick = onDelete) {
+                    Icon(Icons.Default.Delete, "Delete", tint = Color(0xFFEF5350))
+                }
             }
         }
     }
 }
-
 
 @Composable
 fun GmailConnectionCard(
@@ -607,5 +663,47 @@ fun SettingsDialog(
                 }
             }
         }
+    }
+}
+@Composable
+fun RideDetailsDialog(ride: Ride, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Color(0xFF263238),
+        title = {
+            Text("Ride Details", color = Color.White)
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                DetailRow("Date", "${ride.date} at ${ride.time ?: "N/A"}")
+                DetailRow("Amount", "₹${ride.fare}")
+                DetailRow("Pickup", ride.fromAddress)
+                DetailRow("Drop", ride.toAddress)
+                DetailRow("Payment", ride.payment)
+                DetailRow("Source", if(ride.source == "gmail_auto") "Gmail Auto-Sync" else "Manual Entry")
+                DetailRow("Trip ID", ride.tripId)
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close", color = Color(0xFF64B5F6))
+            }
+        }
+    )
+}
+
+@Composable
+fun DetailRow(label: String, value: String) {
+    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = Color.Gray
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            color = Color.White
+        )
     }
 }
