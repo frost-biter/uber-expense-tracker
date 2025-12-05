@@ -30,6 +30,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.Add
@@ -82,6 +84,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.lifecycleScope
@@ -217,7 +220,7 @@ fun MainScreen(viewModel: RideViewModel) {
 
     if (showAddDialog) {
         AddRideDialog(
-            onDismiss = { },
+            onDismiss = { showAddDialog = false },
             onAdd = { ride ->
                 viewModel.addManualRide(ride)
             }
@@ -227,13 +230,13 @@ fun MainScreen(viewModel: RideViewModel) {
     if (showSettingsDialog) {
         SettingsDialog(
             viewModel = viewModel,
-            onDismiss = { }
+            onDismiss = { showSettingsDialog = false}
         )
     }
     if (rideDetailToShow != null) {
         RideDetailsDialog(
             ride = rideDetailToShow!!,
-            onDismiss = { }
+            onDismiss = { rideDetailToShow = null }
         )
     }
 }
@@ -674,23 +677,28 @@ fun RideCard(ride: Ride, onDelete: () -> Unit) {
 @Composable
 fun SettingsDialog(viewModel: RideViewModel, onDismiss: () -> Unit) {
     var senderEmail by remember { mutableStateOf("") }
-    LaunchedEffect(Unit) { senderEmail = viewModel.getSenderEmail() }
+
+    // Load current email when dialog opens
+    LaunchedEffect(Unit) {
+        senderEmail = viewModel.getSenderEmail()
+    }
 
     Dialog(onDismissRequest = onDismiss) {
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = CyberBg),
-            border = BorderStroke(1.dp, CyberPink) // Pink Border for Settings
+            border = BorderStroke(1.dp, CyberPink)
         ) {
             Column(modifier = Modifier.padding(24.dp)) {
                 Text(
                     "SYSTEM_CONFIG",
                     style = MaterialTheme.typography.titleMedium,
                     color = CyberPink,
-                    modifier = Modifier.padding(bottom = 24.dp)
+                    modifier = Modifier.padding(bottom = 24.dp),
+                    fontFamily = FontFamily.Monospace
                 )
 
-                // Cyberpunk Text Field
+                // Input Field
                 OutlinedTextField(
                     value = senderEmail,
                     onValueChange = { senderEmail = it },
@@ -705,27 +713,41 @@ fun SettingsDialog(viewModel: RideViewModel, onDismiss: () -> Unit) {
                         unfocusedTextColor = CyberGray,
                         cursorColor = CyberPink
                     ),
-                    textStyle = TextStyle(fontFamily = FontFamily.Monospace)
+                    textStyle = TextStyle(fontFamily = FontFamily.Monospace),
+                    singleLine = true,
+                    // FEATURE: Pressing 'Done' on keyboard saves & closes
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(
+                        onDone = {
+                            viewModel.setSenderEmail(senderEmail)
+                            onDismiss()
+                        }
+                    )
                 )
 
                 Spacer(modifier = Modifier.height(24.dp))
 
+                // Save Button
                 Button(
                     onClick = {
                         viewModel.setSenderEmail(senderEmail)
-                        onDismiss()
+                        onDismiss() // <--- CRITICAL: This closes the dialog
                     },
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(containerColor = CyberPink),
                     shape = RoundedCornerShape(4.dp)
                 ) {
-                    Text("SAVE CONFIG", color = CyberBg, fontWeight = FontWeight.Bold)
+                    Text(
+                        "SAVE CONFIG",
+                        color = CyberBg,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace
+                    )
                 }
             }
         }
     }
-}
-@Composable
+}@Composable
 fun RideDetailsDialog(ride: Ride, onDismiss: () -> Unit) {
     Dialog(onDismissRequest = onDismiss) {
         Card(

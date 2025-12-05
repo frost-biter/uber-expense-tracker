@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 import android.util.Log
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.map
@@ -251,7 +252,10 @@ class RideViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun setSenderEmail(email: String) {
-        prefs.senderEmail = email.trim()
+        // Force this to run on background thread
+        viewModelScope.launch(Dispatchers.IO) {
+            prefs.senderEmail = email.trim()
+        }
     }
 }
 
