@@ -19,3 +19,19 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# Keep Room entities
+-keep class com.ubertracker.app.data.** { *; }
+
+# Keep Gson annotations
+-keepattributes Signature
+-keepattributes *Annotation*
+-keep class com.google.gson.** { *; }
+
+# Keep Apache POI
+-dontwarn org.apache.poi.**
+-keep class org.apache.poi.** { *; }
+
+# Keep Google API Client
+-keep class com.google.api.client.** { *; }
+-dontwarn com.google.api.client.**
