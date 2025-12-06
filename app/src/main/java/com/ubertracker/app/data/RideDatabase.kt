@@ -85,17 +85,8 @@ abstract class RideDatabase : RoomDatabase() {
             }
         }
 
-        // Migration from version 1 to 2 (example)
-        //private val MIGRATION_1_2 = object : Migration(1, 2) {
-        //    override fun migrate(database: SupportSQLiteDatabase) {
-        //        // Example: Add a new column
-        //        // database.execSQL("ALTER TABLE rides ADD COLUMN newColumn TEXT")
-        //    }
-        //}
 
-        // Clear database (for testing or reset)
-        suspend fun clearDatabase(context: Context) {
-            getDatabase(context).clearAllTables()
-        }
+
+
     }
 }

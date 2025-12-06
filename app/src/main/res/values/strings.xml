@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-<string name="app_name">Uber Expense Tracker</string>
+<string name="app_name">Neon Ledger</string>
 
 <!-- Main Screen -->
 <string name="connect_gmail">Connect Gmail</string>

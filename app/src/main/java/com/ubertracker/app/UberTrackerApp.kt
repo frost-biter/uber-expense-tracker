@@ -23,7 +23,7 @@ class UberTrackerApp : Application(), Configuration.Provider {
         }
 
         // Initialize WorkManager
-        WorkManager.initialize(this, workManagerConfiguration)
+//        WorkManager.initialize(this, workManagerConfiguration)
 
         // Create notification channels
         createNotificationChannels()
