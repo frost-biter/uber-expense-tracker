@@ -59,9 +59,39 @@ class SecurePreferences(context: Context) {
         get() = sharedPreferences.getString(KEY_REMINDER_EVENING, "18:00") ?: "18:00"
         set(value) = sharedPreferences.edit { putString(KEY_REMINDER_EVENING, value) }
 
+    // Legacy single email support - kept for backward compatibility
     var senderEmail: String
-        get() = sharedPreferences.getString(KEY_SENDER_EMAIL, "noreply@uber.com") ?: "noreply@uber.com"
-        set(value) = sharedPreferences.edit { putString(KEY_SENDER_EMAIL, value) }
+        get() = senderEmails.firstOrNull() ?: "noreply@uber.com"
+        set(value) {
+            // If setting a single email, replace the list with just this one
+            senderEmails = if (value.isNotBlank()) listOf(value.trim()) else listOf("noreply@uber.com")
+        }
+    
+    // New: List of sender emails
+    var senderEmails: List<String>
+        get() {
+            val emailsString = sharedPreferences.getString(KEY_SENDER_EMAIL, null)
+            return if (emailsString.isNullOrBlank()) {
+                // Default to single email for backward compatibility
+                listOf("noreply@uber.com")
+            } else {
+                // Split by comma and filter out empty strings
+                emailsString.split(",")
+                    .map { it.trim() }
+                    .filter { it.isNotBlank() }
+                    .ifEmpty { listOf("noreply@uber.com") }
+            }
+        }
+        set(value) {
+            val emailsString = value
+                .filter { it.isNotBlank() }
+                .map { it.trim() }
+                .distinct()
+                .joinToString(",")
+            sharedPreferences.edit { 
+                putString(KEY_SENDER_EMAIL, if (emailsString.isBlank()) "noreply@uber.com" else emailsString)
+            }
+        }
 
     fun clearGmailCredentials() {
         sharedPreferences.edit {

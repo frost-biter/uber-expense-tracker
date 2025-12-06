@@ -127,12 +127,19 @@ class GmailService(private val context: Context) {
             val thirtyDaysAgo = System.currentTimeMillis() - (30L * 24 * 60 * 60 * 1000)
             val dateStr = SimpleDateFormat("yyyy/MM/dd", Locale.getDefault()).format(Date(thirtyDaysAgo))
 
-            // Build query using configured sender email
-            val senderEmail = prefs.senderEmail
-            val query = "from:$senderEmail after:$dateStr subject:(receipt OR trip OR business)"
+            // Build query using configured sender emails (supports multiple)
+            val senderEmails = prefs.senderEmails
+            val query = if (senderEmails.size == 1) {
+                // Single email - simple query
+                "from:${senderEmails.first()} after:$dateStr subject:(receipt OR trip OR business)"
+            } else {
+                // Multiple emails - use OR syntax: from:(email1 OR email2 OR email3)
+                val emailList = senderEmails.joinToString(" OR ")
+                "from:($emailList) after:$dateStr subject:(receipt OR trip OR business)"
+            }
 
             Log.d(TAG, "🔍 EXECUTING QUERY: $query")
-            Log.d(TAG, "📧 Searching for emails from: $senderEmail")
+            Log.d(TAG, "📧 Searching for emails from: ${senderEmails.joinToString(", ")}")
 
             // Execute search
             val listRequest = gmail.users().messages().list("me")
@@ -146,7 +153,7 @@ class GmailService(private val context: Context) {
             if (messages.isNullOrEmpty()) {
                 Log.w(TAG, "⚠️ RESULT: 0 Emails found matching the query.")
                 Log.w(TAG, "   -> Query: $query")
-                Log.w(TAG, "   -> Check if you have emails from '$senderEmail' in the last 30 days.")
+                Log.w(TAG, "   -> Check if you have emails from '${senderEmails.joinToString(", ")}' in the last 30 days.")
             } else {
                 Log.d(TAG, "🎉 RESULT: Found ${messages.size} emails! Processing...")
 

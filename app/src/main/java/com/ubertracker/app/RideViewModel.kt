@@ -318,6 +318,41 @@ class RideViewModel(application: Application) : AndroidViewModel(application) {
             prefs.senderEmail = email.trim()
         }
     }
+    
+    // New: Multiple sender emails management
+    fun getSenderEmails(): List<String> {
+        return prefs.senderEmails
+    }
+
+    fun setSenderEmails(emails: List<String>) {
+        // Force this to run on background thread
+        viewModelScope.launch(Dispatchers.IO) {
+            prefs.senderEmails = emails.map { it.trim() }.filter { it.isNotBlank() }
+        }
+    }
+    
+    fun addSenderEmail(email: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val currentEmails = prefs.senderEmails.toMutableList()
+            val trimmedEmail = email.trim()
+            if (trimmedEmail.isNotBlank() && !currentEmails.contains(trimmedEmail)) {
+                currentEmails.add(trimmedEmail)
+                prefs.senderEmails = currentEmails
+            }
+        }
+    }
+    
+    fun removeSenderEmail(email: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val currentEmails = prefs.senderEmails.toMutableList()
+            currentEmails.remove(email.trim())
+            // Ensure at least one email remains
+            if (currentEmails.isEmpty()) {
+                currentEmails.add("noreply@uber.com")
+            }
+            prefs.senderEmails = currentEmails
+        }
+    }
     val trashedRides: StateFlow<List<Ride>> = rideDao.getTrashedRides()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 

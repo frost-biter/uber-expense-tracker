@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -976,11 +977,12 @@ fun RideCard(ride: Ride, onDelete: () -> Unit) {
 
 @Composable
 fun SettingsDialog(viewModel: RideViewModel, onDismiss: () -> Unit) {
-    var senderEmail by remember { mutableStateOf("") }
+    var senderEmails by remember { mutableStateOf<List<String>>(emptyList()) }
+    var newEmail by remember { mutableStateOf("") }
 
-    // Load current email when dialog opens
+    // Load current emails when dialog opens
     LaunchedEffect(Unit) {
-        senderEmail = viewModel.getSenderEmail()
+        senderEmails = viewModel.getSenderEmails()
     }
 
     Dialog(onDismissRequest = onDismiss) {
@@ -998,47 +1000,124 @@ fun SettingsDialog(viewModel: RideViewModel, onDismiss: () -> Unit) {
                     fontFamily = FontFamily.Monospace
                 )
 
-                // Input Field
-                OutlinedTextField(
-                    value = senderEmail,
-                    onValueChange = { senderEmail = it },
-                    label = { Text("TARGET_EMAIL_ADDRESS") },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = CyberPink,
-                        unfocusedBorderColor = CyberGray,
-                        focusedLabelColor = CyberPink,
-                        unfocusedLabelColor = CyberGray,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = CyberGray,
-                        cursorColor = CyberPink
-                    ),
-                    textStyle = TextStyle(fontFamily = FontFamily.Monospace),
-                    singleLine = true,
-                    // FEATURE: Pressing 'Done' on keyboard saves & closes
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                    keyboardActions = KeyboardActions(
-                        onDone = {
-                            viewModel.setSenderEmail(senderEmail)
-                            onDismiss()
-                        }
-                    )
+                Text(
+                    "TARGET_EMAIL_ADDRESSES",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = CyberGray,
+                    modifier = Modifier.padding(bottom = 8.dp),
+                    fontFamily = FontFamily.Monospace
                 )
+
+                // List of configured emails
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 200.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(senderEmails.size) { index ->
+                        val email = senderEmails[index]
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = email,
+                                color = Color.White,
+                                modifier = Modifier.weight(1f).padding(end = 8.dp),
+                                style = TextStyle(fontFamily = FontFamily.Monospace),
+                                maxLines = 1
+                            )
+                            // Only allow deletion if more than one email exists
+                            if (senderEmails.size > 1) {
+                                IconButton(
+                                    onClick = {
+                                        val updated = senderEmails.toMutableList().apply { removeAt(index) }
+                                        senderEmails = updated
+                                        viewModel.setSenderEmails(updated)
+                                    }
+                                ) {
+                                    Icon(
+                                        Icons.Default.Close,
+                                        "Remove",
+                                        tint = Color.Red.copy(alpha = 0.7f),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Add new email field
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = newEmail,
+                        onValueChange = { newEmail = it },
+                        label = { Text("ADD_NEW_EMAIL") },
+                        modifier = Modifier.weight(1f),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = CyberPink,
+                            unfocusedBorderColor = CyberGray,
+                            focusedLabelColor = CyberPink,
+                            unfocusedLabelColor = CyberGray,
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = CyberGray,
+                            cursorColor = CyberPink
+                        ),
+                        textStyle = TextStyle(fontFamily = FontFamily.Monospace),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(
+                            onDone = {
+                                if (newEmail.isNotBlank() && !senderEmails.contains(newEmail.trim())) {
+                                    val updated = senderEmails.toMutableList().apply { add(newEmail.trim()) }
+                                    senderEmails = updated
+                                    viewModel.setSenderEmails(updated)
+                                    newEmail = ""
+                                }
+                            }
+                        )
+                    )
+                    IconButton(
+                        onClick = {
+                            if (newEmail.isNotBlank() && !senderEmails.contains(newEmail.trim())) {
+                                val updated = senderEmails.toMutableList().apply { add(newEmail.trim()) }
+                                senderEmails = updated
+                                viewModel.setSenderEmails(updated)
+                                newEmail = ""
+                            }
+                        },
+                        enabled = newEmail.isNotBlank() && !senderEmails.contains(newEmail.trim())
+                    ) {
+                        Icon(
+                            Icons.Default.Add,
+                            "Add Email",
+                            tint = if (newEmail.isNotBlank() && !senderEmails.contains(newEmail.trim())) CyberGreen else CyberGray
+                        )
+                    }
+                }
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // Save Button
+                // Close Button
                 Button(
-                    onClick = {
-                        viewModel.setSenderEmail(senderEmail)
-                        onDismiss() // <--- CRITICAL: This closes the dialog
-                    },
+                    onClick = onDismiss,
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(containerColor = CyberPink),
                     shape = RoundedCornerShape(4.dp)
                 ) {
                     Text(
-                        "SAVE CONFIG",
+                        "CLOSE",
                         color = CyberBg,
                         fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.Monospace
