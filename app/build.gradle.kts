@@ -88,6 +88,7 @@ dependencies {
     implementation(libs.androidx.compose.runtime)
     implementation(libs.androidx.ui)
     implementation(libs.androidx.ui.graphics)
+    implementation(libs.androidx.compose.ui.unit)
     ksp(libs.androidx.room.compiler)
 
     // SQLCipher for database encryption (optional)

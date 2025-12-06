@@ -11,6 +11,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -81,6 +82,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -90,6 +97,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -188,23 +196,8 @@ fun MainScreen(viewModel: RideViewModel) {
                 Image(
                     painter = painterResource(id = R.drawable.bg_image),
                     contentDescription = null,
-                    contentScale = ContentScale.Crop, // Fills the screen
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .alpha(0.96f) // Higher opacity to make grid clearly visible
-                )
-                // --- LAYER 2: GRADIENT OVERLAY (Semi-transparent to show grid through) ---
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            brush = Brush.verticalGradient(
-                                colors = listOf(
-                                    Color(0xFF0d0221).copy(alpha = 0.8f), // Very transparent to show grid
-                                    Color(0xFF2B002B).copy(alpha = 0.9f) // Slightly more opaque at bottom
-                                )
-                            )
-                        )
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
                 )
                 // --- LAYER 3: SCAFFOLD (Transparent to show background) ---
                 Scaffold(
@@ -321,6 +314,59 @@ fun MainScreen(viewModel: RideViewModel) {
         }
     }
 }
+@Composable
+fun NeonCard(
+    glowColor: Color,
+    modifier: Modifier = Modifier,
+    cornerRadius: Dp = 16.dp,
+    paddingInner: Dp = 12.dp,
+    content: @Composable () -> Unit
+) {
+    val shape = RoundedCornerShape(cornerRadius)
+
+    // 1. The Parent Container (Holds the shape, border, and shadow)
+    Box(
+        modifier = modifier
+            .shadow(
+                elevation = 10.dp, // Reduced slightly for cleaner look
+                shape = shape,
+                ambientColor = glowColor.copy(alpha = 0.35f),
+                spotColor = glowColor.copy(alpha = 0.55f)
+            )
+            .border(
+                width = 2.dp,
+                brush = Brush.verticalGradient(
+                    listOf(
+                        glowColor.copy(alpha = 1f),
+                        glowColor.copy(alpha = 0.5f)
+                    )
+                ),
+                shape = shape
+            )
+            .clip(shape) // Clip everything inside to the card shape
+    ) {
+        // 2. LAYER A: The "Glass" Background
+        // We use matchParentSize() so it fills the card behind the content
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .background(Color.Black.copy(alpha = 0.65f)) // Translucent fill
+                .blur(20.dp) // Apply blur ONLY to this background layer
+        )
+
+        // 3. LAYER B: The Content (Text, Buttons)
+        // This is a sibling to Layer A, so it does NOT get blurred
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(paddingInner)
+        ) {
+            content()
+        }
+    }
+}
+
+
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class) // Added FoundationApi for combinedClickable
 @Composable
@@ -438,7 +484,7 @@ fun PendingScreen(
                                 Text(ride.date, color = Color.White, fontWeight = FontWeight.Bold)
                                 Text(
                                     ride.fromAddress,
-                                    color = Color.Gray,
+                                    color = Color.Gray  ,
                                     style = MaterialTheme.typography.bodySmall,
                                     maxLines = 1
                                 )
@@ -593,46 +639,101 @@ fun RideItem(
 fun ClaimedRideItem(
     ride: Ride,
     onUnclaim: () -> Unit,
-    onLongClick: () -> Unit, // New
-    onDelete: () -> Unit     // New
+    onLongClick: () -> Unit,
+    onDelete: () -> Unit
 ) {
-    Card(
+    // Define the Green glow for "Claimed" items
+    val claimColor = Color(0xFF00FF99)
+    val shape = RoundedCornerShape(12.dp)
+
+    // 1. Parent Container: Handles Shape, Border, Glow, and Click Logic
+    Box(
         modifier = Modifier
             .fillMaxWidth()
             .padding(8.dp)
-            // Added Long Press capability
+            // SHADOW / GLOW
+            .shadow(
+                elevation = 10.dp,
+                shape = shape,
+                ambientColor = claimColor.copy(alpha = 0.3f),
+                spotColor = claimColor.copy(alpha = 0.5f)
+            )
+            // NEON BORDER
+            .border(
+                width = 2.dp,
+                brush = Brush.verticalGradient(
+                    listOf(claimColor.copy(alpha = 1f), claimColor.copy(alpha = 0.3f))
+                ),
+                shape = shape
+            )
+            .clip(shape)
+            // CLICK LISTENER (Applied to the wrapper)
             .combinedClickable(
                 interactionSource = remember { MutableInteractionSource() },
-                indication = null, // Fixes the crash by disabling the incompatible ripple
-                onClick = {},
+                indication = null, // Disable ripple to prevent crash/visual glitch on glass
+                onClick = {},      // Empty click (consumes touch)
                 onLongClick = onLongClick
-            ),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF37474F))
+            )
     ) {
+        // 2. LAYER A: The "Black Glass" Background (Blurred)
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .background(Color.Black.copy(alpha = 0.5f)) // Dark semi-transparent background
+                .blur(12.dp) // The frost effect
+        )
+
+        // 3. LAYER B: The Content (Sharp Text & Buttons)
         Row(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp), // Padding inside the glass card
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
+            // Text Details
             Column(modifier = Modifier.weight(1f)) {
-                Text(ride.date, style = MaterialTheme.typography.titleMedium, color = Color.White)
-                Text(ride.fromAddress, style = MaterialTheme.typography.bodySmall, color = Color.Gray, maxLines = 1)
-                Text("₹${ride.fare}", style = MaterialTheme.typography.titleLarge, color = Color.White)
+                Text(
+                    text = ride.date,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = ride.fromAddress,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.Gray,
+                    maxLines = 1
+                )
+                Text(
+                    text = "₹${ride.fare}",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = claimColor, // Green Text for the Amount
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace
+                )
             }
 
             // Action Buttons
-            Row {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onUnclaim) {
-                    Icon(Icons.AutoMirrored.Filled.Undo, "Unclaim", tint = Color(0xFFFFB74D))
+                    Icon(
+                        Icons.AutoMirrored.Filled.Undo,
+                        "Unclaim",
+                        tint = Color(0xFFFFB74D) // Orange for "Undo/Warning"
+                    )
                 }
                 IconButton(onClick = onDelete) {
-                    Icon(Icons.Default.Delete, "Delete", tint = Color(0xFFEF5350))
+                    Icon(
+                        Icons.Default.Delete,
+                        "Delete",
+                        tint = Color(0xFFEF5350) // Red for Delete
+                    )
                 }
             }
         }
     }
 }
-
 @Composable
 fun GmailStatusStrip(
     isConnected: Boolean,
@@ -709,22 +810,68 @@ fun StatsRow(stats: RideStats) {
 }
 
 @Composable
-fun StatCard(title: String, value: String, color: Color, modifier: Modifier = Modifier) {
-    Card(
-        modifier = modifier,
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-        border = BorderStroke(1.dp, color)
+fun StatCard(
+    title: String,
+    value: String,
+    color: Color,
+    modifier: Modifier = Modifier
+) {
+    val shape = RoundedCornerShape(12.dp)
+
+    // 1. Parent Container: Handles Shape, Border, and Glow Shadow
+    Box(
+        modifier = modifier
+            .shadow(
+                elevation = 16.dp,
+                shape = shape,
+                ambientColor = color.copy(alpha = 0.4f),
+                spotColor = color.copy(alpha = 0.6f)
+            )
+            .border(
+                width = 2.dp,
+                brush = Brush.verticalGradient(
+                    listOf(color.copy(alpha = 1f), color.copy(alpha = 0.5f))
+                ),
+                shape = shape
+            )
+            .clip(shape) // Clips the inner glass layer to the rounded corners
     ) {
+        // 2. LAYER A: The Glass Background (Blurred)
+        Box(
+            modifier = Modifier
+                .matchParentSize() // Fills the available space behind content
+                .background(Color.Black.copy(alpha = 0.35f)) // Subtle translucent fill
+                .blur(12.dp) // The frosted effect
+        )
+
+        // 3. LAYER B: The Content (Sharp Text)
         Column(
-            modifier = Modifier.padding(16.dp).fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally
+            modifier = Modifier
+                .padding(16.dp)
+                .fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
-            Text(title.uppercase(), style = MaterialTheme.typography.labelSmall, color = color)
-            Text(value, style = MaterialTheme.typography.titleLarge, color = color)
+            Text(
+                text = title.uppercase(),
+                style = MaterialTheme.typography.labelSmall,
+                color = color.copy(alpha = 0.8f), // Slightly dimmer than the value
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.Bold
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Text(
+                text = value,
+                style = MaterialTheme.typography.titleLarge,
+                color = color, // Bright neon color
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.Bold
+            )
         }
     }
 }
-
 @Composable
 fun RideCard(ride: Ride, onDelete: () -> Unit) {
     Card(
