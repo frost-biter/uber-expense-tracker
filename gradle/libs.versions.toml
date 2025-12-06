@@ -44,6 +44,8 @@ material3 = "1.4.0"
 fragment = "1.8.9"
 workRuntimeKtx = "2.11.0"
 runtime = "1.10.0"
+ui = "1.10.0"
+uiGraphics = "1.10.0"
 
 [libraries]
 accompanist-permissions = { module = "com.google.accompanist:accompanist-permissions", version.ref = "accompanistPermissions" }
@@ -92,6 +94,8 @@ play-services-auth = { module = "com.google.android.gms:play-services-auth", ver
 poi = { module = "org.apache.poi:poi", version.ref = "poi" }
 poi-ooxml = { module = "org.apache.poi:poi-ooxml", version.ref = "poiOoxml" }
 androidx-compose-runtime = { group = "androidx.compose.runtime", name = "runtime", version.ref = "runtime" }
+androidx-ui = { group = "androidx.compose.ui", name = "ui", version.ref = "ui" }
+androidx-ui-graphics = { group = "androidx.compose.ui", name = "ui-graphics", version.ref = "uiGraphics" }
 
 
 [plugins]

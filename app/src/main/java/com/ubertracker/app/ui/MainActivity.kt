@@ -9,6 +9,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -39,10 +40,10 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Notes
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.PowerOff
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
@@ -80,16 +81,21 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.lifecycleScope
 import com.ubertracker.app.OneTimeEvent
+import com.ubertracker.app.R
 import com.ubertracker.app.RideViewModel
 import com.ubertracker.app.data.Ride
 import com.ubertracker.app.data.RideStats
@@ -101,7 +107,6 @@ import com.ubertracker.app.ui.theme.CyberPink
 import com.ubertracker.app.ui.theme.UberTrackerTheme
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-
 
 class MainActivity : ComponentActivity() {
     private val viewModel: RideViewModel by viewModels()
@@ -145,12 +150,8 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             UberTrackerTheme {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
-                    MainScreen(viewModel)
-                }
+                // Remove Surface wrapper to allow background to show through
+                MainScreen(viewModel)
             }
         }
     }
@@ -182,79 +183,104 @@ fun MainScreen(viewModel: RideViewModel) {
         }
         "home" -> {
             // YOUR EXISTING DASHBOARD UI
-            Scaffold(
-                containerColor = CyberBg,
-                topBar = {
-                    CenterAlignedTopAppBar(
-                        title = {
-                            Text(
-                                "CYBERPUNK TRACKER",
-                                style = MaterialTheme.typography.titleLarge,
-                                color = CyberPink
+            Box(modifier = Modifier.fillMaxSize()) {
+                // --- LAYER 1: THE BACKGROUND IMAGE ---
+                Image(
+                    painter = painterResource(id = R.drawable.bg_image),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop, // Fills the screen
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .alpha(0.96f) // Higher opacity to make grid clearly visible
+                )
+                // --- LAYER 2: GRADIENT OVERLAY (Semi-transparent to show grid through) ---
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            brush = Brush.verticalGradient(
+                                colors = listOf(
+                                    Color(0xFF0d0221).copy(alpha = 0.8f), // Very transparent to show grid
+                                    Color(0xFF2B002B).copy(alpha = 0.9f) // Slightly more opaque at bottom
+                                )
                             )
-                        },
-                        colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                            containerColor = CyberBg
-                        ),
-                        actions = {
-                            // --- NEW TRASH BUTTON ---
-                            IconButton(onClick = { currentScreen = "trash" }) {
-                                Icon(Icons.Default.Delete, "Trash", tint = CyberGray)
-                            }
-
-                            // Existing Settings Button
-                            IconButton(onClick = { showSettingsDialog = true }) {
-                                Icon(Icons.Default.Settings, "Settings", tint = CyberBlue)
-                            }
-                        }
-                    )
-                },
-                floatingActionButton = {
-                    FloatingActionButton(
-                        onClick = { showAddDialog = true },
-                        containerColor = CyberPink,
-                        contentColor = CyberBg
-                    ) {
-                        Icon(Icons.Default.Add, "Add")
-                    }
-                }
-            ) { padding ->
-                Column(modifier = Modifier.padding(padding)) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        GmailStatusStrip(
-                            isConnected = gmailConnected,
-                            isSyncing = syncing,
-                            onConnect = { viewModel.connectGmail() }
                         )
-                        StatsRow(stats)
-                    }
-                    TabRow(selectedTabIndex = pagerState.currentPage) {
-                        titles.forEachIndexed { index, title ->
-                            Tab(
-                                selected = pagerState.currentPage == index,
-                                onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
-                                text = { Text(title) }
-                            )
+                )
+                // --- LAYER 3: SCAFFOLD (Transparent to show background) ---
+                Scaffold(
+                    containerColor = Color.Transparent, // Make transparent to show background
+                    topBar = {
+                        CenterAlignedTopAppBar(
+                            title = {
+                                Text(
+                                    "CYBERPUNK TRACKER",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    color = CyberPink
+                                )
+                            },
+                            colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                                containerColor = Color.Transparent // Transparent to show background
+                            ),
+                            actions = {
+                                // --- NEW TRASH BUTTON ---
+                                IconButton(onClick = { currentScreen = "trash" }) {
+                                    Icon(Icons.Default.Delete, "Trash", tint = CyberGray)
+                                }
+
+                                // Existing Settings Button
+                                IconButton(onClick = { showSettingsDialog = true }) {
+                                    Icon(Icons.Default.Settings, "Settings", tint = CyberBlue)
+                                }
+                            }
+                        )
+                    },
+                    floatingActionButton = {
+                        FloatingActionButton(
+                            onClick = { showAddDialog = true },
+                            containerColor = CyberPink,
+                            contentColor = CyberBg
+                        ) {
+                            Icon(Icons.Default.Add, "Add")
                         }
                     }
-                    HorizontalPager(state = pagerState) {
-                        when (it) {
-                            0 -> PendingScreen(
-                                viewModel = viewModel,
-                                onShowDetails = { ride -> rideDetailToShow = ride }
+                ) { padding ->
+                    Column(modifier = Modifier.padding(padding)) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            GmailStatusStrip(
+                                isConnected = gmailConnected,
+                                isSyncing = syncing,
+                                onConnect = { viewModel.connectGmail() }
                             )
-                            1 -> HistoryScreen(
-                                viewModel = viewModel,
-                                onShowDetails = { ride -> rideDetailToShow = ride }
-                            )
+                            StatsRow(stats)
+                        }
+                        TabRow(selectedTabIndex = pagerState.currentPage) {
+                            titles.forEachIndexed { index, title ->
+                                Tab(
+                                    selected = pagerState.currentPage == index,
+                                    onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
+                                    text = { Text(title) }
+                                )
+                            }
+                        }
+                        HorizontalPager(state = pagerState) {
+                            when (it) {
+                                0 -> PendingScreen(
+                                    viewModel = viewModel,
+                                    onShowDetails = { ride -> rideDetailToShow = ride }
+                                )
+
+                                1 -> HistoryScreen(
+                                    viewModel = viewModel,
+                                    onShowDetails = { ride -> rideDetailToShow = ride }
+                                )
+                            }
                         }
                     }
                 }
             }
-
             // --- DIALOGS (Only show these when on Home screen) ---
             if (showAddDialog) {
                 AddRideDialog(
@@ -296,7 +322,7 @@ fun MainScreen(viewModel: RideViewModel) {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class) // Added FoundationApi for combinedClickable
 @Composable
 fun PendingScreen(
     viewModel: RideViewModel,
@@ -304,14 +330,11 @@ fun PendingScreen(
 ) {
     val rides by viewModel.unclaimedRides.collectAsState()
     val selectedIds by viewModel.selectedRideIds.collectAsState()
-    // 1. Correctly observe the 'syncing' state from your ViewModel
     val isSyncing by viewModel.syncing.collectAsState()
-
-    // 2. Just create the state, don't manipulate it manually
     val state = rememberPullToRefreshState()
 
     Scaffold(
-        containerColor = Color.Transparent,
+        containerColor = Color.Transparent, // Transparent so background shows through glass
         bottomBar = {
             if (selectedIds.isNotEmpty()) {
                 Row(
@@ -340,14 +363,12 @@ fun PendingScreen(
             }
         }
     ) { padding ->
-        // 3. The Box handles the logic. No extra code needed.
         PullToRefreshBox(
             isRefreshing = isSyncing,
-            onRefresh = { viewModel.syncGmail() }, // This triggers when you pull down
+            onRefresh = { viewModel.syncGmail() },
             state = state,
             modifier = Modifier.padding(padding),
             indicator = {
-                // Custom Cyberpunk Spinner
                 PullToRefreshDefaults.Indicator(
                     state = state,
                     isRefreshing = isSyncing,
@@ -379,13 +400,90 @@ fun PendingScreen(
                 }
 
                 items(rides) { ride ->
-                    RideItem(
-                        ride = ride,
-                        isSelected = selectedIds.contains(ride.id),
-                        onClick = { viewModel.toggleSelection(ride.id) },
-                        onLongClick = { onShowDetails(ride) },
-                        onDelete = { viewModel.deleteRide(ride.id) }
-                    )
+                    // Logic: Green if selected, Pink if not
+                    val glowColor = if (selectedIds.contains(ride.id)) NeonGreen else NeonPink
+
+                    // --- THE NEW NEON CARD IMPLEMENTATION ---
+                    NeonCard(
+                        glowColor = glowColor,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            // Handle Clicks here on the wrapper
+                            .combinedClickable(
+                                onClick = { viewModel.toggleSelection(ride.id) },
+                                onLongClick = { onShowDetails(ride) }
+                            )
+                    ) {
+                        // --- CONTENT INSIDE THE CARD ---
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Checkbox
+                            Checkbox(
+                                checked = selectedIds.contains(ride.id),
+                                onCheckedChange = null, // Handled by card click above
+                                colors = CheckboxDefaults.colors(
+                                    checkedColor = NeonGreen,
+                                    uncheckedColor = glowColor,
+                                    checkmarkColor = Color.Black,
+                                    // Make the border match the neon theme
+                                    disabledCheckedColor = NeonGreen,
+                                    disabledUncheckedColor = glowColor
+                                )
+                            )
+
+                            // Date & Address
+                            Column(modifier = Modifier.padding(start = 12.dp).weight(1f)) {
+                                Text(ride.date, color = Color.White, fontWeight = FontWeight.Bold)
+                                Text(
+                                    ride.fromAddress,
+                                    color = Color.Gray,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    maxLines = 1
+                                )
+                            }
+
+                            // Price
+                            Text(
+                                "₹${ride.fare}",
+                                color = glowColor,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace
+                            )
+
+                            // Action Buttons Row
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                // Download Receipt Button (if receiptUrl exists)
+                                val context = LocalContext.current
+                                if (!ride.receiptUrl.isNullOrEmpty()) {
+                                    IconButton(
+                                        onClick = {
+                                            try {
+                                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(ride.receiptUrl))
+                                                context.startActivity(intent)
+                                            } catch (e: Exception) {
+                                                e.printStackTrace()
+                                            }
+                                        }
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Download,
+                                            contentDescription = "Download Receipt",
+                                            tint = NeonGreen // Green for download
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                }
+
+                                // Delete Icon
+                                IconButton(onClick = { viewModel.deleteRide(ride.id) }) {
+                                    Icon(Icons.Default.Delete, "Delete", tint = Color.Red.copy(alpha = 0.7f))
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }

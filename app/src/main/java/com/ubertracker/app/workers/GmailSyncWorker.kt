@@ -57,7 +57,7 @@ class GmailSyncWorker(appContext: Context, workerParams: WorkerParameters) : Cor
             scheduleSyncAtTime(context, workManager, WORK_NAME_11_02, 11, 1, constraints)
             
             // Schedule 3:02 PM (15:02) sync
-            scheduleSyncAtTime(context, workManager, WORK_NAME_15_02, 13, 23, constraints)
+            scheduleSyncAtTime(context, workManager, WORK_NAME_15_02, 15, 5, constraints)
             
             // Schedule 8:00 PM (20:00) sync
             scheduleSyncAtTime(context, workManager, WORK_NAME_20_00, 20, 0, constraints)
