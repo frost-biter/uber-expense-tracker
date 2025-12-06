@@ -42,6 +42,7 @@ import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Notes
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.PowerOff
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
@@ -110,6 +111,16 @@ class MainActivity : ComponentActivity() {
     ) { result ->
         viewModel.handleSignInResult(result.data)
     }
+    
+    private val consentLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        // After user grants consent, recheck connection and try syncing again
+        viewModel.recheckGmailConnection()
+        // Note: syncGmail() and scheduleDailyGmailSyncs() will be called automatically
+        // when connection is restored, but we can trigger a manual sync here
+        viewModel.syncGmail()
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -119,6 +130,14 @@ class MainActivity : ComponentActivity() {
                 when (event) {
                     is OneTimeEvent.StartSignIn -> {
                         signInLauncher.launch(event.signInIntent)
+                    }
+                    is OneTimeEvent.RequestGmailConsent -> {
+                        // User needs to grant consent - launch the consent Intent
+                        consentLauncher.launch(event.consentIntent)
+                    }
+                    is OneTimeEvent.GmailAuthFailed -> {
+                        // Auth failure will be handled in the UI via state change
+                        // The connection state will be updated, triggering UI refresh
                     }
                 }
             }
@@ -143,101 +162,137 @@ fun MainScreen(viewModel: RideViewModel) {
     var showAddDialog by remember { mutableStateOf(false) }
     var showSettingsDialog by remember { mutableStateOf(false) }
     var rideDetailToShow by remember { mutableStateOf<Ride?>(null) }
+    var rideToEdit by remember { mutableStateOf<Ride?>(null) }
     val pagerState = rememberPagerState(pageCount = { 2 })
     val scope = rememberCoroutineScope()
     val titles = listOf("Pending", "History")
     val gmailConnected by viewModel.gmailConnected.collectAsState()
     val syncing by viewModel.syncing.collectAsState()
     val stats by viewModel.stats.collectAsState()
+    var currentScreen by remember { mutableStateOf("home") }
 
 
-    Scaffold(
-        containerColor = CyberBg,
-        topBar = {
-            CenterAlignedTopAppBar(
-                title = {
-                    Text(
-                        "CYBERPUNK TRACKER", // Caps like HTML
-                        style = MaterialTheme.typography.titleLarge,
-                        color = CyberPink
+    when (currentScreen) {
+        "trash" -> {
+            // Show the Trash Screen file you created
+            TrashScreen(
+                viewModel = viewModel,
+                onBack = { currentScreen = "home" }
+            )
+        }
+        "home" -> {
+            // YOUR EXISTING DASHBOARD UI
+            Scaffold(
+                containerColor = CyberBg,
+                topBar = {
+                    CenterAlignedTopAppBar(
+                        title = {
+                            Text(
+                                "CYBERPUNK TRACKER",
+                                style = MaterialTheme.typography.titleLarge,
+                                color = CyberPink
+                            )
+                        },
+                        colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                            containerColor = CyberBg
+                        ),
+                        actions = {
+                            // --- NEW TRASH BUTTON ---
+                            IconButton(onClick = { currentScreen = "trash" }) {
+                                Icon(Icons.Default.Delete, "Trash", tint = CyberGray)
+                            }
+
+                            // Existing Settings Button
+                            IconButton(onClick = { showSettingsDialog = true }) {
+                                Icon(Icons.Default.Settings, "Settings", tint = CyberBlue)
+                            }
+                        }
                     )
                 },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = CyberBg
-                ),
-                actions = {
-                    IconButton(onClick = { showSettingsDialog = true }) {
-                        Icon(Icons.Default.Settings, "Settings", tint = CyberBlue)
+                floatingActionButton = {
+                    FloatingActionButton(
+                        onClick = { showAddDialog = true },
+                        containerColor = CyberPink,
+                        contentColor = CyberBg
+                    ) {
+                        Icon(Icons.Default.Add, "Add")
                     }
                 }
-            )
-        },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = { showAddDialog = true },
-                containerColor = CyberPink, // Pink Button
-                contentColor = CyberBg
-            ) {
-                Icon(Icons.Default.Add, "Add")
+            ) { padding ->
+                Column(modifier = Modifier.padding(padding)) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        GmailStatusStrip(
+                            isConnected = gmailConnected,
+                            isSyncing = syncing,
+                            onConnect = { viewModel.connectGmail() }
+                        )
+                        StatsRow(stats)
+                    }
+                    TabRow(selectedTabIndex = pagerState.currentPage) {
+                        titles.forEachIndexed { index, title ->
+                            Tab(
+                                selected = pagerState.currentPage == index,
+                                onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
+                                text = { Text(title) }
+                            )
+                        }
+                    }
+                    HorizontalPager(state = pagerState) {
+                        when (it) {
+                            0 -> PendingScreen(
+                                viewModel = viewModel,
+                                onShowDetails = { ride -> rideDetailToShow = ride }
+                            )
+                            1 -> HistoryScreen(
+                                viewModel = viewModel,
+                                onShowDetails = { ride -> rideDetailToShow = ride }
+                            )
+                        }
+                    }
+                }
             }
-        }
-    ) { padding ->
-        Column(modifier = Modifier.padding(padding)) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                GmailStatusStrip(
-                    isConnected = gmailConnected,
-                    isSyncing = syncing,
-                    onConnect = { viewModel.connectGmail() }
+
+            // --- DIALOGS (Only show these when on Home screen) ---
+            if (showAddDialog) {
+                AddRideDialog(
+                    onDismiss = { showAddDialog = false },
+                    onAdd = { ride -> viewModel.addManualRide(ride) }
                 )
-                StatsRow(stats)
             }
-            TabRow(selectedTabIndex = pagerState.currentPage) {
-                titles.forEachIndexed { index, title ->
-                    Tab(
-                        selected = pagerState.currentPage == index,
-                        onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
-                        text = { Text(title) }
-                    )
-                }
+
+            if (showSettingsDialog) {
+                SettingsDialog(
+                    viewModel = viewModel,
+                    onDismiss = { showSettingsDialog = false }
+                )
             }
-            HorizontalPager(state = pagerState) {
-                when (it) {
-                    0 -> PendingScreen(
-                        viewModel = viewModel,
-                        onShowDetails = { ride -> rideDetailToShow = ride }
-                    )
-                    1 -> HistoryScreen(
-                        viewModel = viewModel,
-                        onShowDetails = { ride -> rideDetailToShow = ride }
-                    )
-                }
+
+            if (rideDetailToShow != null) {
+                val currentRide = rideDetailToShow!!
+                RideDetailsDialog(
+                    ride = currentRide,
+                    onDismiss = { rideDetailToShow = null },
+                    onEdit = {
+                        rideToEdit = currentRide
+                        rideDetailToShow = null
+                    }
+                )
+            }
+
+            if (rideToEdit != null) {
+                AddRideDialog(
+                    rideToEdit = rideToEdit,
+                    onDismiss = { rideToEdit = null },
+                    onAdd = { ride ->
+                        viewModel.updateRide(ride)
+                        rideToEdit = null
+                    }
+                )
             }
         }
-    }
-
-    if (showAddDialog) {
-        AddRideDialog(
-            onDismiss = { showAddDialog = false },
-            onAdd = { ride ->
-                viewModel.addManualRide(ride)
-            }
-        )
-    }
-
-    if (showSettingsDialog) {
-        SettingsDialog(
-            viewModel = viewModel,
-            onDismiss = { showSettingsDialog = false}
-        )
-    }
-    if (rideDetailToShow != null) {
-        RideDetailsDialog(
-            ride = rideDetailToShow!!,
-            onDismiss = { rideDetailToShow = null }
-        )
     }
 }
 
@@ -747,24 +802,44 @@ fun SettingsDialog(viewModel: RideViewModel, onDismiss: () -> Unit) {
             }
         }
     }
-}@Composable
-fun RideDetailsDialog(ride: Ride, onDismiss: () -> Unit) {
+}
+
+@Composable
+fun RideDetailsDialog(ride: Ride, onDismiss: () -> Unit, onEdit: () -> Unit) {
     Dialog(onDismissRequest = onDismiss) {
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = CyberBg),
             border = BorderStroke(1.dp, CyberBlue) // Blue Border for Info
         ) {
-            Column(
-                modifier = Modifier.padding(24.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                Text(
-                    "RIDE_DETAILS_LOG",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = CyberBlue,
-                    fontFamily = FontFamily.Monospace
-                )
+            Box(modifier = Modifier.fillMaxWidth()) {
+                // Edit button in top-right corner
+                IconButton(
+                    onClick = onEdit,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(8.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Edit,
+                        "Edit",
+                        tint = CyberPink,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+                
+                Column(
+                    modifier = Modifier
+                        .padding(24.dp)
+                        .padding(top = 8.dp), // Extra top padding to avoid overlap with Edit button
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Text(
+                        "RIDE_DETAILS_LOG",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = CyberBlue,
+                        fontFamily = FontFamily.Monospace
+                    )
 
                 // Specific Fields Requested
                 DetailRow("DATE", "${ride.date} at ${ride.time ?: "N/A"}")
@@ -790,6 +865,7 @@ fun RideDetailsDialog(ride: Ride, onDismiss: () -> Unit) {
                     shape = RoundedCornerShape(4.dp)
                 ) {
                     Text("CLOSE TERMINAL", color = CyberBg, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                }
                 }
             }
         }

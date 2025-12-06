@@ -27,15 +27,30 @@ import java.util.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddRideDialog(
+    rideToEdit: Ride? = null,
     onDismiss: () -> Unit,
     onAdd: (Ride) -> Unit
 ) {
-    var date by remember { mutableStateOf(SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())) }
-    var fromAddress by remember { mutableStateOf("") }
-    var toAddress by remember { mutableStateOf("") }
-    var fare by remember { mutableStateOf("") }
-    var payment by remember { mutableStateOf("UPI") }
-    var notes by remember { mutableStateOf("") }
+    val isEditMode = rideToEdit != null
+    
+    var date by remember(rideToEdit) { 
+        mutableStateOf(rideToEdit?.date ?: SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())) 
+    }
+    var fromAddress by remember(rideToEdit) { 
+        mutableStateOf(rideToEdit?.fromAddress ?: "") 
+    }
+    var toAddress by remember(rideToEdit) { 
+        mutableStateOf(rideToEdit?.toAddress ?: "") 
+    }
+    var fare by remember(rideToEdit) { 
+        mutableStateOf(rideToEdit?.fare?.toString() ?: "") 
+    }
+    var payment by remember(rideToEdit) { 
+        mutableStateOf(rideToEdit?.payment ?: "UPI") 
+    }
+    var notes by remember(rideToEdit) { 
+        mutableStateOf(rideToEdit?.notes ?: "") 
+    }
     var showError by remember { mutableStateOf(false) }
 
 
@@ -58,7 +73,7 @@ fun AddRideDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        "MANUAL_OVERRIDE",
+                        if (isEditMode) "EDIT_OVERRIDE" else "MANUAL_OVERRIDE",
                         style = MaterialTheme.typography.titleMedium,
                         color = CyberPink,
                         fontFamily = FontFamily.Monospace
@@ -206,22 +221,36 @@ fun AddRideDialog(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // Add Button
+                // Add/Update Button
                 Button(
                     onClick = {
                         val fareValue = fare.toDoubleOrNull()
                         if (fareValue != null && fromAddress.isNotBlank()) {
-                            val ride = Ride(
-                                date = date,
-                                time = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date()),
-                                fromAddress = fromAddress,
-                                toAddress = toAddress,
-                                fare = fareValue,
-                                payment = payment,
-                                tripId = "MAN${System.currentTimeMillis()}",
-                                source = "manual",
-                                notes = notes.ifEmpty { null }
-                            )
+                            val ride = if (isEditMode && rideToEdit != null) {
+                                // Update existing ride, preserving ID and other fields
+                                rideToEdit.copy(
+                                    date = date,
+                                    time = rideToEdit.time ?: SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date()),
+                                    fromAddress = fromAddress,
+                                    toAddress = toAddress,
+                                    fare = fareValue,
+                                    payment = payment,
+                                    notes = notes.ifEmpty { null }
+                                )
+                            } else {
+                                // Create new ride
+                                Ride(
+                                    date = date,
+                                    time = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date()),
+                                    fromAddress = fromAddress,
+                                    toAddress = toAddress,
+                                    fare = fareValue,
+                                    payment = payment,
+                                    tripId = "MAN${System.currentTimeMillis()}",
+                                    source = "manual",
+                                    notes = notes.ifEmpty { null }
+                                )
+                            }
                             onAdd(ride)
                         }
                     },
@@ -229,7 +258,12 @@ fun AddRideDialog(
                     colors = ButtonDefaults.buttonColors(containerColor = CyberPink),
                     shape = RoundedCornerShape(4.dp)
                 ) {
-                    Text("INJECT DATA", color = CyberBg, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                    Text(
+                        if (isEditMode) "UPDATE DATA" else "INJECT DATA", 
+                        color = CyberBg, 
+                        fontWeight = FontWeight.Bold, 
+                        fontFamily = FontFamily.Monospace
+                    )
                 }
             }
         }

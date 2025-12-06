@@ -10,6 +10,7 @@ import com.ubertracker.app.data.RideStats
 import com.ubertracker.app.data.SecurePreferences
 import com.ubertracker.app.gmail.GmailService
 import com.ubertracker.app.excel.ExcelExporter
+import com.ubertracker.app.workers.GmailSyncWorker
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -142,7 +143,40 @@ class RideViewModel(application: Application) : AndroidViewModel(application) {
     private fun checkGmailConnection() {
         viewModelScope.launch {
             // This will also restore the service if needed
-            _gmailConnected.value = gmailService.isConnected()
+            val isConnected = gmailService.isConnected()
+            _gmailConnected.value = isConnected
+            // If already connected, schedule daily syncs
+            if (isConnected) {
+                scheduleDailyGmailSyncs()
+            } else {
+                // If not connected, cancel any scheduled syncs
+                try {
+                    val workManager = androidx.work.WorkManager.getInstance(getApplication())
+                    workManager.cancelUniqueWork("gmail_sync_11_02")
+                    workManager.cancelUniqueWork("gmail_sync_15_02")
+                    workManager.cancelUniqueWork("gmail_sync_20_00")
+                } catch (e: Exception) {
+                    Log.e("RideViewModel", "Error canceling syncs", e)
+                }
+            }
+        }
+    }
+    
+    /**
+     * Recheck Gmail connection status - useful when app resumes or after auth failures
+     */
+    fun recheckGmailConnection() {
+        checkGmailConnection()
+    }
+    
+    private fun scheduleDailyGmailSyncs() {
+        viewModelScope.launch {
+            try {
+                // getApplication() returns Application which is a Context
+                GmailSyncWorker.scheduleDailySyncs(getApplication<Application>())
+            } catch (e: Exception) {
+                Log.e("RideViewModel", "Error scheduling Gmail syncs", e)
+            }
         }
     }
 
@@ -161,6 +195,8 @@ class RideViewModel(application: Application) : AndroidViewModel(application) {
             if (success) {
                 _gmailConnected.value = true
                 syncGmail()
+                // Schedule daily automatic syncs
+                scheduleDailyGmailSyncs()
             }
         }
     }
@@ -177,7 +213,20 @@ class RideViewModel(application: Application) : AndroidViewModel(application) {
                         rideDao.insertRide(ride)
                     }
                 }
+            } catch (e: com.ubertracker.app.gmail.GmailService.AuthenticationException) {
+                // Authentication failed - update connection state and notify user
+                Log.w("RideViewModel", "Gmail authentication failed", e)
+                _gmailConnected.value = false
+                
+                // If there's an Intent for user consent, trigger the consent flow
+                if (e.intent != null) {
+                    _oneTimeEvent.emit(OneTimeEvent.RequestGmailConsent(e.intent))
+                } else {
+                    // Otherwise, just notify about auth failure
+                    _oneTimeEvent.emit(OneTimeEvent.GmailAuthFailed(e.message ?: "Gmail authentication failed. Please sign in again."))
+                }
             } catch (e: Exception) {
+                Log.e("RideViewModel", "Error syncing Gmail", e)
                 e.printStackTrace()
             } finally {
                 _syncing.value = false
@@ -203,10 +252,21 @@ class RideViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun updateRide(ride: Ride) {
+        viewModelScope.launch {
+            try {
+                rideDao.updateRide(ride)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
     fun deleteRide(rideId: Long) {
         viewModelScope.launch {
             try {
-                rideDao.deleteRideById(rideId)
+//                rideDao.deleteRideById(rideId)
+                rideDao.softDeleteRide(rideId)
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -243,6 +303,7 @@ class RideViewModel(application: Application) : AndroidViewModel(application) {
         // WorkManager setup for daily reminders at 9 AM and 6 PM
         viewModelScope.launch {
             // Implementation in WorkManager section
+            // Note: Gmail sync scheduling is handled automatically when Gmail is connected
         }
     }
 
@@ -257,8 +318,30 @@ class RideViewModel(application: Application) : AndroidViewModel(application) {
             prefs.senderEmail = email.trim()
         }
     }
+    val trashedRides: StateFlow<List<Ride>> = rideDao.getTrashedRides()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    fun restoreRide(rideId: Long) {
+        viewModelScope.launch {
+            rideDao.restoreRide(rideId)
+        }
+    }
+
+    fun deleteForever(rideId: Long) {
+        viewModelScope.launch {
+            rideDao.deleteForever(rideId)
+        }
+    }
+
+    fun emptyTrash() {
+        viewModelScope.launch {
+            rideDao.emptyTrash()
+        }
+    }
 }
 
 sealed class OneTimeEvent {
     data class StartSignIn(val signInIntent: Intent) : OneTimeEvent()
+    data class RequestGmailConsent(val consentIntent: Intent) : OneTimeEvent()
+    data class GmailAuthFailed(val message: String) : OneTimeEvent()
 }

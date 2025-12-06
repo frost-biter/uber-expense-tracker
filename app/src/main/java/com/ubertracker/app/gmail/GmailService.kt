@@ -9,6 +9,9 @@ import com.google.android.gms.auth.api.signin.GoogleSignInAccount
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.Scope
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential
+import com.google.api.client.googleapis.extensions.android.gms.auth.UserRecoverableAuthIOException
+import com.google.api.client.googleapis.json.GoogleJsonResponseException
+import com.google.api.client.http.HttpResponseException
 import com.google.api.client.http.javanet.NetHttpTransport
 import com.google.api.client.json.gson.GsonFactory
 import com.google.api.services.gmail.Gmail
@@ -204,6 +207,46 @@ class GmailService(private val context: Context) {
             // Update last sync timestamp
             prefs.lastSyncTimestamp = System.currentTimeMillis()
 
+        } catch (e: UserRecoverableAuthIOException) {
+            // Handle user recoverable auth errors (NeedRemoteConsent)
+            // This means user needs to grant consent again
+            Log.w(TAG, "⚠️ User recoverable auth error - NeedRemoteConsent", e)
+            prefs.isGmailConnected = false
+            gmailService = null
+            // Extract the Intent to get user consent
+            val intent = e.intent
+            throw AuthenticationException(
+                "Gmail access requires your consent. Please grant permission again.",
+                e,
+                intent
+            )
+        } catch (e: GoogleJsonResponseException) {
+            // Handle Google API authentication errors
+            val statusCode = e.statusCode
+            Log.e(TAG, "❌ Google API Error: Status $statusCode", e)
+            
+            // Check for authentication/authorization errors
+            if (statusCode == 401 || statusCode == 403) {
+                Log.w(TAG, "⚠️ Authentication failed - Token expired or revoked")
+                // Mark as disconnected and clear service
+                prefs.isGmailConnected = false
+                gmailService = null
+                // Throw a specific exception to be handled by caller
+                throw AuthenticationException("Gmail authentication failed. Please sign in again.", e)
+            }
+            e.printStackTrace()
+        } catch (e: HttpResponseException) {
+            // Handle other HTTP errors
+            val statusCode = e.statusCode
+            Log.e(TAG, "❌ HTTP Error: Status $statusCode", e)
+            
+            if (statusCode == 401 || statusCode == 403) {
+                Log.w(TAG, "⚠️ Authentication failed - Token expired or revoked")
+                prefs.isGmailConnected = false
+                gmailService = null
+                throw AuthenticationException("Gmail authentication failed. Please sign in again.", e)
+            }
+            e.printStackTrace()
         } catch (e: Exception) {
             Log.e(TAG, "❌ CRITICAL ERROR: API Call Failed", e)
             e.printStackTrace()
@@ -211,6 +254,16 @@ class GmailService(private val context: Context) {
 
         return@withContext rides
     }
+    
+    /**
+     * Custom exception for authentication failures
+     * @param intent Optional Intent to get user consent (for UserRecoverableAuthIOException)
+     */
+    class AuthenticationException(
+        message: String,
+        cause: Throwable? = null,
+        val intent: Intent? = null
+    ) : Exception(message, cause)
 
     // ... imports ...
 

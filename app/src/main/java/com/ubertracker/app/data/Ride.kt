@@ -57,6 +57,9 @@ data class Ride(
     val createdAt: Long = System.currentTimeMillis(),
 
     @ColumnInfo(name = "receiptUrl")
-    val receiptUrl: String? = null
+    val receiptUrl: String? = null,
+
+    @ColumnInfo(name = "is_deleted")
+    val isDeleted: Boolean = false
 
 )
