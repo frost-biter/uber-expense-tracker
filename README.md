@@ -1,10 +1,47 @@
+<div align="center">
+
+<img src="./results/APP_ICON_HOME_SCREEN.png" alt="Logo" width="100" height="100">
+
 # Ride Expense Tracker for Uber & Rapido
 
-> A local-first Android application for automatically tracking and managing your Uber and Rapido business expenses.
+**A local-first Android application for automatically tracking and managing your Uber and Rapido business expenses.**
+
+![Kotlin](https://img.shields.io/badge/kotlin-%237F52FF.svg?style=for-the-badge&logo=kotlin&logoColor=white)
+![Android](https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white)
+![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-4285F4?style=for-the-badge&logo=android&logoColor=white)
+
+</div>
+
+---
 
 ## 🎯 Problem Statement
 
 Keeping track of business rides for expense claims can be a hassle. Receipts get lost, manual entry is tedious, and it's easy to miss out on claims. This app solves that by automating the entire process, right from your phone.
+
+---
+
+## 🎨 Screenshots & Demos
+
+<div align="center">
+  <table>
+    <tr>
+      <td align="center"><b>Loading Animation</b></td>
+      <td align="center"><b>Home (Empty)</b></td>
+      <td align="center"><b>Home (With Rides)</b></td>
+    </tr>
+    <tr>
+      <td align="center" width="200">
+         <img src="./results/LOADING_ANIMATION.gif" alt="Loading Animation (Convert MP4 to GIF!)" />
+      </td>
+      <td align="center" width="200">
+        <img src="./results/HOME_SCREEN_RAW_NO_GMAIL_NO_RIDES.png" alt="Empty Home" />
+      </td>
+      <td align="center" width="200">
+        <img src="./results/HOME_SCREEN_WITH_RIDES.png" alt="Rides List" />
+      </td>
+    </tr>
+  </table>
+</div>
 
 ---
 
@@ -34,26 +71,6 @@ Keeping track of business rides for expense claims can be a hassle. Receipts get
 
 ---
 
-## 🎨 Demonstrations
-
-**Loading Animation**
-
-<video src="./results/LOADING_ANIMATION.mp4" width="300"/>
-
-**App Icon**
-
-![App Icon](./results/APP_ICON_HOME_SCREEN.png)
-
-**Home Screen (Empty)**
-
-![Home Screen Raw](./results/HOME_SCREEN_RAW_NO_GMAIL_NO_RIDES.png)
-
-**Home Screen (With Rides)**
-
-![Home Screen with Rides](./results/HOME_SCREEN_WITH_RIDES.png)
-
----
-
 ## 🏗️ Tech Stack & Architecture
 
 - **Language:** Kotlin
@@ -71,20 +88,20 @@ Keeping track of business rides for expense claims can be a hassle. Receipts get
 
 **Prerequisites:**
 
-*   Android Studio
-*   An Android device or emulator
-*   A Google Cloud project with the Gmail API enabled
+* Android Studio
+* An Android device or emulator
+* A Google Cloud project with the Gmail API enabled
 
 **Installation:**
 
 1.  **Clone the repository:**
     ```bash
-    https://github.com/frost-biter/uber-expense-tracker
+    git clone [https://github.com/frost-biter/uber-expense-tracker.git](https://github.com/frost-biter/uber-expense-tracker.git)
     ```
 2.  **Open in Android Studio:** Open the cloned project in Android Studio.
 3.  **Configure Gmail API:**
-    *   Create OAuth 2.0 Client IDs in your Google Cloud project.
-    *   Add your `SHA-1` signing certificate fingerprint to the credentials.
+    * Create OAuth 2.0 Client IDs in your Google Cloud project.
+    * Add your `SHA-1` signing certificate fingerprint to the credentials.
 4.  **Build and Run:** Build and run the app on your device or emulator.
 
 ---
