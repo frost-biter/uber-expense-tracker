@@ -1,14 +1,15 @@
 <div align="center">
 
-<img src="./results/APP_ICON_HOME_SCREEN.png" alt="Logo" width="100" height="100">
+<img src="./results/APP_ICON_HOME_SCREEN.png" alt="Logo" width="120" height="120">
 
-# Ride Expense Tracker for Uber & Rapido
+# Neon Ledger: Uber & Rapido Expense Tracker
 
-**A local-first Android application for automatically tracking and managing your Uber and Rapido business expenses.**
+**A local-first, cyberpunk-themed Android application for automatically tracking and managing your ride expenses.**
 
 ![Kotlin](https://img.shields.io/badge/kotlin-%237F52FF.svg?style=for-the-badge&logo=kotlin&logoColor=white)
 ![Android](https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white)
 ![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-4285F4?style=for-the-badge&logo=android&logoColor=white)
+![Google Cloud](https://img.shields.io/badge/Google_Cloud-4285F4?style=for-the-badge&logo=google-cloud&logoColor=white)
 
 </div>
 
@@ -16,99 +17,110 @@
 
 ## 🎯 Problem Statement
 
-Keeping track of business rides for expense claims can be a hassle. Receipts get lost, manual entry is tedious, and it's easy to miss out on claims. This app solves that by automating the entire process, right from your phone.
+Keeping track of business rides for reimbursement claims is chaotic. Receipts get buried in emails, manual entry is tedious, and missed claims cost money. **Neon Ledger** solves this by automating the entire process—fetching receipts, parsing data, and generating Excel reports—wrapped in a sleek, privacy-focused interface.
 
 ---
 
-## 🎨 Screenshots & Demos
+## 🎨 Interface & Demos
+
+### 🚀 System Initialization
+The app features a custom "System Boot" splash screen animation that plays while the secure local database initializes.
+
+<div align="center">
+  <img src="./results/LOADING_ANIMATION.gif" alt="Loading Animation" width="350"/>
+  <br>
+  <em>(Custom Canvas-based Particle Animation)</em>
+</div>
+
+<br>
+
+### 📱 Dashboard & Tracking
+The main dashboard provides a clear split between **Claimed** and **Unclaimed** expenses. It uses a glass-morphism cyberpunk aesthetic with neon glows to indicate selection states.
 
 <div align="center">
   <table>
     <tr>
-      <td align="center"><b>Loading Animation</b></td>
-      <td align="center"><b>Home (Empty)</b></td>
-      <td align="center"><b>Home (With Rides)</b></td>
+      <td align="center"><b>Offline / Empty State</b></td>
+      <td align="center"><b>Live Dashboard</b></td>
     </tr>
     <tr>
-      <td align="center" width="200">
-         <img src="./results/LOADING_ANIMATION.gif" alt="Loading Animation (Convert MP4 to GIF!)" />
+      <td align="center">
+        <img src="./results/HOME_SCREEN_RAW_NO_GMAIL_NO_RIDES.png" alt="Empty Home Screen" width="300" />
       </td>
-      <td align="center" width="200">
-        <img src="./results/HOME_SCREEN_RAW_NO_GMAIL_NO_RIDES.png" alt="Empty Home" />
+      <td align="center">
+        <img src="./results/HOME_SCREEN_WITH_RIDES.png" alt="Dashboard with Rides" width="300" />
       </td>
-      <td align="center" width="200">
-        <img src="./results/HOME_SCREEN_WITH_RIDES.png" alt="Rides List" />
-      </td>
+    </tr>
+    <tr>
+      <td align="center"><em>Initial state before Gmail sync</em></td>
+      <td align="center"><em>Auto-fetched Uber & Rapido rides</em></td>
     </tr>
   </table>
 </div>
 
 ---
 
-## ✨ Features
+## ✨ Key Features
 
-### 🤖 **Automated Receipt Fetching**
-- **Connects to your Gmail account** securely using Google Sign-In.
-- **Automatically fetches new ride receipts** from Uber and Rapido.
-- **Parses ride details** directly from the email content.
+### 🤖 **Automated Receipt Parsing**
+- **Gmail Integration:** Securely connects via Google Sign-In (Read-Only access).
+- **Smart Parsers:** Custom HTML parsers (`Jsoup`) specifically built for **Uber** and **Rapido** email receipts.
+- **Background Sync:** Uses `WorkManager` to run scheduled sync jobs at 11:00, 15:00, and 20:00 daily.
 
-### ✍️ **Manual Ride Entry**
-- Add rides that were missed by the automated system.
-- Simple form to enter date, fare, and other details.
+### 📊 **Expense Management**
+- **Claim Status:** distinct workflow for "Pending" vs "History" (Claimed) rides.
+- **Excel Export:** Generates professional `.xlsx` reports using **Apache POI**. Includes automatic PDF receipt downloading for selected rides.
+- **Recycle Bin:** Safely delete rides with a "Trash" and "Restore" feature (Soft Delete).
 
-### 📊 **Expense Dashboard**
-- At-a-glance view of your total rides and expenses.
-- See a breakdown of your claimed and unclaimed expenses.
+### ⚙️ **Customization & Controls**
+- **Manual Overrides:** Add rides manually if an email is missing.
+- **Custom Senders:** Configure specific email addresses to scan (useful for forwarded receipts).
+- **Direct Access:** Open original PDF receipts or email links directly from the dashboard.
 
-### 📥 **Excel Export**
-- **Generate and share Excel reports** of your rides with a single tap.
-- Includes options to export selected rides and their PDF receipts.
-
-### 🔐 **Privacy-First Design**
-- **All your data is stored locally** on your device in a secure database.
-- **No external servers** are used to store your ride information.
-- The app only requires read-only access to your Gmail.
+### 🔐 **Privacy-First Architecture**
+- **Local Storage:** All data is stored locally in a **Room Database**.
+- **No External Servers:** Your ride data never leaves your device except when you share an Excel report.
+- **Encrypted Preferences:** Sensitive tokens are stored using `EncryptedSharedPreferences`.
 
 ---
 
-## 🏗️ Tech Stack & Architecture
+## 🏗️ Tech Stack
 
 - **Language:** Kotlin
-- **UI:** Jetpack Compose with Material 3
+- **UI Toolkit:** Jetpack Compose (Material 3) with custom Canvas animations
 - **Architecture:** MVVM (Model-View-ViewModel)
-- **Database:** Room for local storage
-- **Background Processing:** WorkManager for daily syncs
-- **Authentication:** Google Sign-In for secure Gmail access
-- **API:** Gmail API for reading emails
-- **File Handling:** Apache POI for Excel generation
+- **Local Data:** Room Database (SQLite)
+- **Networking:** Google Gmail API (v1)
+- **Parsing:** Jsoup (HTML) & Apache POI (Excel)
+- **Background Jobs:** Android WorkManager
 
 ---
 
 ## 🚀 Quick Start
 
 **Prerequisites:**
+* Android Studio Ladybug or newer (Agp 8.13.0+)
+* A Google Cloud Project with **Gmail API** enabled.
 
-* Android Studio
-* An Android device or emulator
-* A Google Cloud project with the Gmail API enabled
-
-**Installation:**
+**Setup:**
 
 1.  **Clone the repository:**
     ```bash
     git clone [https://github.com/frost-biter/uber-expense-tracker.git](https://github.com/frost-biter/uber-expense-tracker.git)
     ```
-2.  **Open in Android Studio:** Open the cloned project in Android Studio.
-3.  **Configure Gmail API:**
-    * Create OAuth 2.0 Client IDs in your Google Cloud project.
-    * Add your `SHA-1` signing certificate fingerprint to the credentials.
-4.  **Build and Run:** Build and run the app on your device or emulator.
+2.  **Configure OAuth:**
+    * Go to Google Cloud Console.
+    * Create an OAuth 2.0 Client ID (Android).
+    * Add your local `debug.keystore` SHA-1 fingerprint.
+3.  **Build:**
+    * Sync Gradle and run on an emulator/device.
+4.  **First Run:**
+    * Tap "TAP TO CONNECT" on the home screen to authorize Gmail access.
 
 ---
 
-## 📱 Usage
+## 📱 Usage Guide
 
-1.  **Connect Your Gmail Account:** On the first launch, you'll be prompted to connect your Gmail account.
-2.  **Sync Receipts:** The app will automatically sync your Uber and Rapido receipts in the background. You can also trigger a manual sync from the home screen.
-3.  **View and Manage Rides:** Your rides will appear on the home screen. You can view details, and mark them as claimed.
-4.  **Export Reports:** When you're ready to file your expenses, use the export feature to generate an Excel report.
+1.  **Syncing:** The app automatically checks for emails from `uber.com` and `rapido.bike`. You can verify connection status in the "System Status" strip.
+2.  **Exporting:** Long-press a ride to enter selection mode -> Select rides -> Click **Claim** to generate an Excel report.
+3.  **Recovering:** Accidentally deleted a ride? Go to **Settings -> Trash** to restore it.
