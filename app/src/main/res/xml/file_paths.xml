@@ -5,6 +5,11 @@
         name="external_documents"
         path="Documents/UberExpenses/" />
 
+    <!-- Directory for downloaded receipts -->
+    <external-path
+        name="downloaded_receipts"
+        path="Download/UberTracker/Receipts/" />
+
     <!-- Cache directory for temporary files -->
     <cache-path
         name="cache"

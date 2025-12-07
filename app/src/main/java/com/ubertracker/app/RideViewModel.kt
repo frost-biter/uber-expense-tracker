@@ -16,9 +16,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
-import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
@@ -72,23 +70,30 @@ class RideViewModel(application: Application) : AndroidViewModel(application) {
             val ids = _selectedRideIds.value
             if (ids.isEmpty()) return@launch
 
-            // 1. Get the actual ride objects
             val allRides = unclaimedRides.value
             val ridesToExport = allRides.filter { ids.contains(it.id) }
 
             if (ridesToExport.isNotEmpty()) {
                 try {
-                    // 2. Generate Excel
+                    ridesToExport.forEach { ride ->
+                        val url = ride.receiptUrl
+                        if (gmailService.isAttachmentUrl(url)) {
+                            val parsed = gmailService.parseAttachmentUrl(url ?: "")
+                            if (parsed != null) {
+                                val (msgId, attId, filename) = parsed
+                                gmailService.downloadAttachment(msgId, attId, filename)
+                            }
+                        }
+                    }
+
                     val file = excelExporter.generateExcel(ridesToExport)
                     excelExporter.shareFile(file)
 
-                    // 3. Mark as Claimed in DB
                     rideDao.updateClaimStatus(ids.toList(), true)
-
-                    // 4. Clear Selection
                     clearSelection()
+
                 } catch (e: Exception) {
-                    e.printStackTrace()
+                    // ignore
                 }
             }
         }
@@ -101,12 +106,10 @@ class RideViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     init {
-
         checkGmailConnection()
     }
     val stats: StateFlow<RideStats> = rideDao.getAllRides()
         .map { rides ->
-            // This runs every time the database changes
             calculateStatsValues(rides)
         }
         .stateIn(
@@ -116,66 +119,44 @@ class RideViewModel(application: Application) : AndroidViewModel(application) {
         )
 
     private fun calculateStatsValues(rideList: List<Ride>): RideStats {
-        val calendar = Calendar.getInstance()
-        val currentMonth = calendar.get(Calendar.MONTH)
-        val currentYear = calendar.get(Calendar.YEAR)
-
-        val monthRides = rideList.filter { ride ->
-            try {
-                val rideDate = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).parse(ride.date)
-                val rideCal = Calendar.getInstance().apply { time = rideDate ?: Date() }
-                rideCal.get(Calendar.MONTH) == currentMonth &&
-                        rideCal.get(Calendar.YEAR) == currentYear
-            } catch (e: Exception) {
-                false
-            }
-        }
-
         return RideStats(
-            totalRides = monthRides.size,
-            totalAmount = monthRides.sumOf { it.fare },
-            manualEntries = monthRides.count { it.source == "manual" },
-            claimedAmount = monthRides.filter { it.isClaimed }.sumOf { it.fare },
-            unclaimedAmount = monthRides.filter { !it.isClaimed }.sumOf { it.fare }
+            totalRides = rideList.size,
+            totalAmount = rideList.sumOf { it.fare },
+            manualEntries = rideList.count { it.source == "manual" },
+            claimedAmount = rideList.filter { it.isClaimed }.sumOf { it.fare },
+            unclaimedAmount = rideList.filter { !it.isClaimed }.sumOf { it.fare }
         )
     }
 
     private fun checkGmailConnection() {
         viewModelScope.launch {
-            // This will also restore the service if needed
             val isConnected = gmailService.isConnected()
             _gmailConnected.value = isConnected
-            // If already connected, schedule daily syncs
             if (isConnected) {
                 scheduleDailyGmailSyncs()
             } else {
-                // If not connected, cancel any scheduled syncs
                 try {
                     val workManager = androidx.work.WorkManager.getInstance(getApplication())
                     workManager.cancelUniqueWork("gmail_sync_11_02")
                     workManager.cancelUniqueWork("gmail_sync_15_02")
                     workManager.cancelUniqueWork("gmail_sync_20_00")
                 } catch (e: Exception) {
-                    Log.e("RideViewModel", "Error canceling syncs", e)
+                    // ignore
                 }
             }
         }
     }
-    
-    /**
-     * Recheck Gmail connection status - useful when app resumes or after auth failures
-     */
+
     fun recheckGmailConnection() {
         checkGmailConnection()
     }
-    
+
     private fun scheduleDailyGmailSyncs() {
         viewModelScope.launch {
             try {
-                // getApplication() returns Application which is a Context
                 GmailSyncWorker.scheduleDailySyncs(getApplication<Application>())
             } catch (e: Exception) {
-                Log.e("RideViewModel", "Error scheduling Gmail syncs", e)
+                // ignore
             }
         }
     }
@@ -195,7 +176,6 @@ class RideViewModel(application: Application) : AndroidViewModel(application) {
             if (success) {
                 _gmailConnected.value = true
                 syncGmail()
-                // Schedule daily automatic syncs
                 scheduleDailyGmailSyncs()
             }
         }
@@ -207,27 +187,21 @@ class RideViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 val newRides = gmailService.fetchUberReceipts()
                 newRides.forEach { ride ->
-                    // Check for duplicates based on tripId
                     val existing = rideDao.getRideByTripId(ride.tripId)
                     if (existing == null) {
                         rideDao.insertRide(ride)
                     }
                 }
             } catch (e: com.ubertracker.app.gmail.GmailService.AuthenticationException) {
-                // Authentication failed - update connection state and notify user
-                Log.w("RideViewModel", "Gmail authentication failed", e)
                 _gmailConnected.value = false
-                
-                // If there's an Intent for user consent, trigger the consent flow
+
                 if (e.intent != null) {
                     _oneTimeEvent.emit(OneTimeEvent.RequestGmailConsent(e.intent))
                 } else {
-                    // Otherwise, just notify about auth failure
                     _oneTimeEvent.emit(OneTimeEvent.GmailAuthFailed(e.message ?: "Gmail authentication failed. Please sign in again."))
                 }
             } catch (e: Exception) {
-                Log.e("RideViewModel", "Error syncing Gmail", e)
-                e.printStackTrace()
+                // ignore
             } finally {
                 _syncing.value = false
             }
@@ -237,17 +211,14 @@ class RideViewModel(application: Application) : AndroidViewModel(application) {
     fun addManualRide(ride: Ride) {
         viewModelScope.launch {
             try {
-                // Check for potential duplicates
                 val duplicate = rideDao.checkDuplicate(ride.date, ride.fare, 5.0)
                 if (duplicate == null) {
                     rideDao.insertRide(ride)
                 } else {
-                    // Handle duplicate (show dialog in UI)
-                    // For now, just insert anyway with different ID
                     rideDao.insertRide(ride)
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
+                // ignore
             }
         }
     }
@@ -257,7 +228,7 @@ class RideViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 rideDao.updateRide(ride)
             } catch (e: Exception) {
-                e.printStackTrace()
+                // ignore
             }
         }
     }
@@ -265,10 +236,9 @@ class RideViewModel(application: Application) : AndroidViewModel(application) {
     fun deleteRide(rideId: Long) {
         viewModelScope.launch {
             try {
-//                rideDao.deleteRideById(rideId)
                 rideDao.softDeleteRide(rideId)
             } catch (e: Exception) {
-                e.printStackTrace()
+                // ignore
             }
         }
     }
@@ -289,64 +259,34 @@ class RideViewModel(application: Application) : AndroidViewModel(application) {
 
                 if (monthRides.isNotEmpty()) {
                     val file = excelExporter.generateExcel(monthRides)
-                    // Share or open the file
                     excelExporter.shareFile(file)
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
+                // ignore
             }
         }
     }
 
     fun scheduleDailyReminders() {
-        // This will be called from MainActivity onCreate
-        // WorkManager setup for daily reminders at 9 AM and 6 PM
         viewModelScope.launch {
             // Implementation in WorkManager section
-            // Note: Gmail sync scheduling is handled automatically when Gmail is connected
         }
     }
 
-    // Sender email management
-    fun getSenderEmail(): String {
-        return prefs.senderEmail
-    }
-
-    fun setSenderEmail(email: String) {
-        // Force this to run on background thread
-        viewModelScope.launch(Dispatchers.IO) {
-            prefs.senderEmail = email.trim()
-        }
-    }
-    
-    // New: Multiple sender emails management
     fun getSenderEmails(): List<String> {
         return prefs.senderEmails
     }
 
     fun setSenderEmails(emails: List<String>) {
-        // Force this to run on background thread
         viewModelScope.launch(Dispatchers.IO) {
             prefs.senderEmails = emails.map { it.trim() }.filter { it.isNotBlank() }
         }
     }
-    
-    fun addSenderEmail(email: String) {
-        viewModelScope.launch(Dispatchers.IO) {
-            val currentEmails = prefs.senderEmails.toMutableList()
-            val trimmedEmail = email.trim()
-            if (trimmedEmail.isNotBlank() && !currentEmails.contains(trimmedEmail)) {
-                currentEmails.add(trimmedEmail)
-                prefs.senderEmails = currentEmails
-            }
-        }
-    }
-    
+
     fun removeSenderEmail(email: String) {
         viewModelScope.launch(Dispatchers.IO) {
             val currentEmails = prefs.senderEmails.toMutableList()
             currentEmails.remove(email.trim())
-            // Ensure at least one email remains
             if (currentEmails.isEmpty()) {
                 currentEmails.add("noreply@uber.com")
             }
@@ -371,6 +311,44 @@ class RideViewModel(application: Application) : AndroidViewModel(application) {
     fun emptyTrash() {
         viewModelScope.launch {
             rideDao.emptyTrash()
+        }
+    }
+
+    suspend fun downloadAndOpenReceipt(ride: Ride): Boolean {
+        return try {
+            val url = ride.receiptUrl ?: return false
+
+            if (gmailService.isAttachmentUrl(url)) {
+                val parsed = gmailService.parseAttachmentUrl(url)
+                if (parsed != null) {
+                    val (msgId, attId, filename) = parsed
+                    val file = gmailService.downloadAttachment(msgId, attId, filename)
+                    if (file != null && file.exists()) {
+                        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                            val uri = androidx.core.content.FileProvider.getUriForFile(
+                                getApplication(),
+                                "${getApplication<Application>().packageName}.fileprovider",
+                                file
+                            )
+                            setDataAndType(uri, "application/pdf")
+                            addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        }
+                        getApplication<Application>().startActivity(intent)
+                        true
+                    } else {
+                        false
+                    }
+                } else {
+                    false
+                }
+            } else {
+                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))
+                intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                getApplication<Application>().startActivity(intent)
+                true
+            }
+        } catch (e: Exception) {
+            false
         }
     }
 }

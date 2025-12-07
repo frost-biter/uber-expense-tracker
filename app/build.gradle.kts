@@ -92,7 +92,7 @@ dependencies {
     ksp(libs.androidx.room.compiler)
 
     // SQLCipher for database encryption (optional)
-    implementation(libs.android.database.sqlcipher)
+    implementation("net.zetetic:sqlcipher-android:4.6.1")
     implementation(libs.androidx.sqlite.ktx)
 
     // Encrypted SharedPreferences

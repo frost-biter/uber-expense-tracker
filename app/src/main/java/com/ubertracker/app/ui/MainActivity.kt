@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+//import androidx.compose.foundation.layout.matchParentSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -46,6 +47,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Notes
+import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.PowerOff
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
@@ -64,9 +66,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
+import androidx.compose.material3.TabRowDefaults
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -87,7 +90,6 @@ import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -250,13 +252,72 @@ fun MainScreen(viewModel: RideViewModel) {
                             )
                             StatsRow(stats)
                         }
-                        TabRow(selectedTabIndex = pagerState.currentPage) {
-                            titles.forEachIndexed { index, title ->
-                                Tab(
-                                    selected = pagerState.currentPage == index,
-                                    onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
-                                    text = { Text(title) }
-                                )
+                        // --- CYBERPUNK THEMED TAB ROW ---
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                // Optional: Add a bottom border to separate tabs from list
+                                .drawBehind {
+                                    val strokeWidth = 1.dp.toPx()
+                                    val y = size.height - strokeWidth / 2
+                                    drawLine(
+                                        color = CyberBlue.copy(alpha = 0.3f), // Dim Blue line at bottom
+                                        start = Offset(0f, y),
+                                        end = Offset(size.width, y),
+                                        strokeWidth = strokeWidth
+                                    )
+                                }
+                        ) {
+                            // 1. The Glass Background for the Tabs
+                            Box(
+                                modifier = Modifier
+                                    .matchParentSize()
+                                    .background(Color.Black.copy(alpha = 0.4f)) // Semi-transparent backing
+                            )
+                            
+                            // 2. The Custom TabRow
+                            TabRow(
+                                selectedTabIndex = pagerState.currentPage,
+                                containerColor = Color.Transparent, // Transparent to show our Glass Box
+                                contentColor = CyberPink,
+                                indicator = { tabPositions ->
+                                    // CUSTOM GLOWING INDICATOR
+                                    if (pagerState.currentPage < tabPositions.size) {
+                                        TabRowDefaults.SecondaryIndicator(
+                                            modifier = Modifier
+                                                .tabIndicatorOffset(tabPositions[pagerState.currentPage])
+                                                .height(3.dp) // Slightly thicker
+                                                // The Neon Glow Effect
+                                                .shadow(
+                                                    elevation = 8.dp,
+                                                    spotColor = CyberPink,
+                                                    ambientColor = CyberPink
+                                                ),
+                                            color = CyberPink // Neon Pink Line
+                                        )
+                                    }
+                                },
+                                divider = {} // We drew our own custom divider above
+                            ) {
+                                titles.forEachIndexed { index, title ->
+                                    val selected = pagerState.currentPage == index
+                                    
+                                    Tab(
+                                        selected = selected,
+                                        onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
+                                        text = {
+                                            Text(
+                                                text = title.uppercase(),
+                                                fontFamily = FontFamily.Monospace,
+                                                // Bold if selected, normal if not
+                                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                                                fontSize = 14.sp,
+                                                // Neon Pink if selected, Gray if not
+                                                color = if (selected) CyberPink else Color.Gray
+                                            )
+                                        }
+                                    )
+                                }
                             }
                         }
                         HorizontalPager(state = pagerState) {
@@ -298,7 +359,8 @@ fun MainScreen(viewModel: RideViewModel) {
                     onEdit = {
                         rideToEdit = currentRide
                         rideDetailToShow = null
-                    }
+                    },
+                    viewModel = viewModel
                 )
             }
 
@@ -502,23 +564,22 @@ fun PendingScreen(
 
                             // Action Buttons Row
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                // Download Receipt Button (if receiptUrl exists)
-                                val context = LocalContext.current
+                                // Receipt Button (different for Rapido attachments vs Uber links)
+                                val scope = rememberCoroutineScope()
+                                val isAttachment = ride.receiptUrl?.startsWith("attachment://") == true
+                                
                                 if (!ride.receiptUrl.isNullOrEmpty()) {
                                     IconButton(
                                         onClick = {
-                                            try {
-                                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(ride.receiptUrl))
-                                                context.startActivity(intent)
-                                            } catch (e: Exception) {
-                                                e.printStackTrace()
+                                            scope.launch {
+                                                viewModel.downloadAndOpenReceipt(ride)
                                             }
                                         }
                                     ) {
                                         Icon(
-                                            imageVector = Icons.Default.Download,
-                                            contentDescription = "Download Receipt",
-                                            tint = NeonGreen // Green for download
+                                            imageVector = if (isAttachment) Icons.Default.Download else Icons.Default.OpenInNew,
+                                            contentDescription = if (isAttachment) "Download PDF Receipt" else "View Receipt",
+                                            tint = if (isAttachment) NeonGreen else CyberBlue // Green for download, Blue for link
                                         )
                                     }
                                     Spacer(modifier = Modifier.width(4.dp))
@@ -562,7 +623,8 @@ fun RideItem(
     isSelected: Boolean,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    viewModel: RideViewModel? = null
 ) {
     val borderColor = if (isSelected) CyberBlue else CyberPink
     val context = LocalContext.current // Context needed to open the browser
@@ -603,23 +665,32 @@ fun RideItem(
 
             // --- ACTION BUTTONS ROW ---
             Row(verticalAlignment = Alignment.CenterVertically) {
-
-                // 1. RECEIPT DOWNLOAD BUTTON (Visible only if URL exists)
+                val scope = rememberCoroutineScope()
+                val isAttachment = ride.receiptUrl?.startsWith("attachment://") == true
+                
+                // 1. RECEIPT BUTTON (Different icon for Rapido attachments vs Uber links)
                 if (!ride.receiptUrl.isNullOrEmpty()) {
                     IconButton(
                         onClick = {
-                            try {
-                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(ride.receiptUrl))
-                                context.startActivity(intent)
-                            } catch (e: Exception) {
-                                e.printStackTrace() // Log error if no browser found
+                            if (viewModel != null) {
+                                scope.launch {
+                                    viewModel.downloadAndOpenReceipt(ride)
+                                }
+                            } else {
+                                // Fallback: open URL directly
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(ride.receiptUrl ?: ""))
+                                try {
+                                    context.startActivity(intent)
+                                } catch (e: Exception) {
+                                    e.printStackTrace()
+                                }
                             }
                         }
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Download,
-                            contentDescription = "Download Receipt",
-                            tint = CyberGreen // Green for "Get/Download"
+                            imageVector = if (isAttachment) Icons.Default.Download else Icons.Default.OpenInNew,
+                            contentDescription = if (isAttachment) "Download PDF Receipt" else "View Receipt Link",
+                            tint = if (isAttachment) CyberGreen else CyberBlue // Green for download, Blue for link
                         )
                     }
 
@@ -874,7 +945,7 @@ fun StatCard(
     }
 }
 @Composable
-fun RideCard(ride: Ride, onDelete: () -> Unit) {
+fun RideCard(ride: Ride, onDelete: () -> Unit, viewModel: RideViewModel? = null) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = Color(0xFF263238))
@@ -947,28 +1018,41 @@ fun RideCard(ride: Ride, onDelete: () -> Unit) {
                 }
             }
 
-            // Download Receipt Button (if receiptUrl is available)
+            // Receipt Button (different for Rapido attachments vs Uber links)
             ride.receiptUrl?.let { url ->
                 Spacer(Modifier.height(12.dp))
+                val scope = rememberCoroutineScope()
                 val context = LocalContext.current
+                val isAttachment = url.startsWith("attachment://")
+                
                 Button(
                     onClick = {
-                        try {
+                        if (viewModel != null) {
+                            scope.launch {
+                                viewModel.downloadAndOpenReceipt(ride)
+                            }
+                        } else {
+                            // Fallback for old code - open URL directly
                             val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-                            context.startActivity(intent)
-                        } catch (e: Exception) {
-                            // Handle case where no browser is available
-                            e.printStackTrace()
+                            try {
+                                context.startActivity(intent)
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                            }
                         }
                     },
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF2196F3)
+                        containerColor = if (isAttachment) Color(0xFF4CAF50) else Color(0xFF2196F3) // Green for download, Blue for link
                     )
                 ) {
-                    Icon(Icons.Default.Download, null, modifier = Modifier.size(18.dp))
+                    Icon(
+                        if (isAttachment) Icons.Default.Download else Icons.Default.OpenInNew,
+                        null,
+                        modifier = Modifier.size(18.dp)
+                    )
                     Spacer(Modifier.width(8.dp))
-                    Text("Download Receipt")
+                    Text(if (isAttachment) "Download PDF" else "View Receipt")
                 }
             }
         }
@@ -1129,7 +1213,7 @@ fun SettingsDialog(viewModel: RideViewModel, onDismiss: () -> Unit) {
 }
 
 @Composable
-fun RideDetailsDialog(ride: Ride, onDismiss: () -> Unit, onEdit: () -> Unit) {
+fun RideDetailsDialog(ride: Ride, onDismiss: () -> Unit, onEdit: () -> Unit, viewModel: RideViewModel? = null) {
     Dialog(onDismissRequest = onDismiss) {
         Card(
             modifier = Modifier.fillMaxWidth(),
