@@ -65,6 +65,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
@@ -93,6 +94,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -116,6 +118,7 @@ import com.ubertracker.app.ui.theme.CyberGray
 import com.ubertracker.app.ui.theme.CyberGreen
 import com.ubertracker.app.ui.theme.CyberPink
 import com.ubertracker.app.ui.theme.UberTrackerTheme
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
@@ -160,9 +163,21 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
+
             UberTrackerTheme {
-                // Remove Surface wrapper to allow background to show through
-                MainScreen(viewModel)
+                var isLoading by remember { mutableStateOf(true) }
+                LaunchedEffect(Unit) {
+                    // Fake delay for effect (remove this when you have real data loading)
+                    delay(2000)
+                    isLoading = false
+                }
+                if (isLoading) {
+                    // Show the new animation
+                    LoadingScreen()
+                } else {
+                    // Show your actual App
+                    MainScreen(viewModel)
+                }
             }
         }
     }
@@ -209,7 +224,7 @@ fun MainScreen(viewModel: RideViewModel) {
                         CenterAlignedTopAppBar(
                             title = {
                                 Text(
-                                    "CYBERPUNK TRACKER",
+                                    "EXPENSE TRACKER",
                                     style = MaterialTheme.typography.titleLarge,
                                     color = CyberPink
                                 )
@@ -311,7 +326,7 @@ fun MainScreen(viewModel: RideViewModel) {
                                                 fontFamily = FontFamily.Monospace,
                                                 // Bold if selected, normal if not
                                                 fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                                                fontSize = 14.sp,
+                                                fontSize = 15.sp,
                                                 // Neon Pink if selected, Gray if not
                                                 color = if (selected) CyberPink else Color.Gray
                                             )
@@ -387,48 +402,61 @@ fun NeonCard(
 ) {
     val shape = RoundedCornerShape(cornerRadius)
 
-    // 1. The Parent Container (Holds the shape, border, and shadow)
+    // 1. Parent Container
     Box(
         modifier = modifier
-            .shadow(
-                elevation = 10.dp, // Reduced slightly for cleaner look
-                shape = shape,
-                ambientColor = glowColor.copy(alpha = 0.35f),
-                spotColor = glowColor.copy(alpha = 0.55f)
+            .neonGlow(
+                color = glowColor.copy(alpha = 0.29F),
+                blurRadius = 15.dp, // Soft outer glow
+                borderRadius = cornerRadius
             )
             .border(
                 width = 2.dp,
                 brush = Brush.verticalGradient(
-                    listOf(
-                        glowColor.copy(alpha = 1f),
-                        glowColor.copy(alpha = 0.5f)
-                    )
+                    // Neon Border Gradient
+                    listOf(glowColor.copy(alpha = 1f), glowColor.copy(alpha = 0.3f))
                 ),
                 shape = shape
             )
-            .clip(shape) // Clip everything inside to the card shape
+            .clip(shape)
     ) {
-        // 2. LAYER A: The "Glass" Background
-        // We use matchParentSize() so it fills the card behind the content
+        // 2. LAYER A: The "Textured" Glass Background
         Box(
             modifier = Modifier
                 .matchParentSize()
-                .background(Color.Black.copy(alpha = 0.65f)) // Translucent fill
-                .blur(20.dp) // Apply blur ONLY to this background layer
+                .background(
+                    // GRADIENT FILL instead of Solid Color
+                    // This creates the "Uneven Glass" look
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            Color.Black.copy(alpha = 0.4f), // Lighter top (let light in)
+                            Color.Black.copy(alpha = 0.7f)  // Darker bottom (readability)
+                        )
+                    )
+                )
+                .blur(15.dp) // Blurs the gradient slightly to soften it
         )
 
-        // 3. LAYER B: The Content (Text, Buttons)
-        // This is a sibling to Layer A, so it does NOT get blurred
+        // 3. LAYER B: Content
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(paddingInner)
         ) {
-            content()
+            // THIS WRAPPER ADDS THE GLOW TO ALL TEXT INSIDE
+            ProvideTextStyle(
+                value = TextStyle(
+                    shadow = Shadow(
+                        color = glowColor, // Uses the card's neon color
+                        blurRadius = 20f   // The text glow intensity
+                    )
+                )
+            ) {
+                content()
+            }
         }
     }
 }
-
 
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class) // Added FoundationApi for combinedClickable
@@ -890,14 +918,14 @@ fun StatCard(
 ) {
     val shape = RoundedCornerShape(12.dp)
 
-    // 1. Parent Container: Handles Shape, Border, and Glow Shadow
     Box(
         modifier = modifier
-            .shadow(
-                elevation = 16.dp,
-                shape = shape,
-                ambientColor = color.copy(alpha = 0.4f),
-                spotColor = color.copy(alpha = 0.6f)
+            // 1. SWAP 'shadow' FOR 'neonGlow'
+            // This creates the actual bright light effect outside the border
+            .neonGlow(
+                color = color.copy(alpha = 0.28f),
+                blurRadius = 15.dp, // Increase for wider glow
+                borderRadius = 12.dp
             )
             .border(
                 width = 2.dp,
@@ -906,17 +934,17 @@ fun StatCard(
                 ),
                 shape = shape
             )
-            .clip(shape) // Clips the inner glass layer to the rounded corners
+            .clip(shape)
     ) {
-        // 2. LAYER A: The Glass Background (Blurred)
+        // 2. LAYER A: The Glass Background
         Box(
             modifier = Modifier
-                .matchParentSize() // Fills the available space behind content
-                .background(Color.Black.copy(alpha = 0.35f)) // Subtle translucent fill
-                .blur(12.dp) // The frosted effect
+                .matchParentSize()
+                .background(Color.Black.copy(alpha = 0.5f)) // Keep this dark for contrast
+                .blur(12.dp)
         )
 
-        // 3. LAYER B: The Content (Sharp Text)
+        // 3. LAYER B: Content
         Column(
             modifier = Modifier
                 .padding(16.dp)
@@ -927,17 +955,23 @@ fun StatCard(
             Text(
                 text = title.uppercase(),
                 style = MaterialTheme.typography.labelSmall,
-                color = color.copy(alpha = 0.8f), // Slightly dimmer than the value
+                color = color.copy(alpha = 0.9f),
                 fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.Bold
             )
 
             Spacer(modifier = Modifier.height(4.dp))
 
+            // 4. OPTIONAL: Add Text Shadow for extra "Tube Light" look
             Text(
                 text = value,
-                style = MaterialTheme.typography.titleLarge,
-                color = color, // Bright neon color
+                style = MaterialTheme.typography.titleLarge.copy(
+                    shadow = Shadow(
+                        color = color,
+                        blurRadius = 20f // Glow specifically for the text
+                    )
+                ),
+                color = color,
                 fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.Bold
             )
