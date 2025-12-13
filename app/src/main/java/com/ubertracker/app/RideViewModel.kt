@@ -24,6 +24,13 @@ import kotlinx.coroutines.flow.map
 import java.text.SimpleDateFormat
 import java.util.*
 import androidx.core.net.toUri
+import androidx.lifecycle.application
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.OneTimeWorkRequest
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
+import com.ubertracker.app.workers.ReminderWorker
+import java.util.concurrent.TimeUnit
 
 class RideViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -108,6 +115,7 @@ class RideViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         checkGmailConnection()
+        scheduleReminders()
     }
     val stats: StateFlow<RideStats> = rideDao.getAllRides()
         .map { rides ->
@@ -268,10 +276,15 @@ class RideViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun scheduleDailyReminders() {
-        viewModelScope.launch {
-            // Implementation in WorkManager section
-        }
+    fun scheduleReminders() {
+        val workRequest = PeriodicWorkRequestBuilder<ReminderWorker>(12, TimeUnit.HOURS)
+            .build()
+
+        WorkManager.getInstance(application).enqueueUniquePeriodicWork(
+            "ExpenseReminderWork",
+            ExistingPeriodicWorkPolicy.KEEP, // KEEP ensures we don't reset the timer if it's already running
+            workRequest
+        )
     }
 
     fun getSenderEmails(): List<String> {
@@ -301,6 +314,14 @@ class RideViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             rideDao.restoreRide(rideId)
         }
+    }
+
+    // In RideViewModel.kt
+
+    fun testNotificationNow() {
+        val request = OneTimeWorkRequest.Builder(ReminderWorker::class.java)
+            .build()
+        WorkManager.getInstance(application).enqueue(request)
     }
 
     fun deleteForever(rideId: Long) {

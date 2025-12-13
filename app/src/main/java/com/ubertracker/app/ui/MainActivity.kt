@@ -4,14 +4,13 @@ import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ObjectAnimator
 import android.content.Intent
-import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.view.View
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
-import androidx.compose.animation.core.animate
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
@@ -31,7 +30,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-//import androidx.compose.foundation.layout.matchParentSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -43,6 +41,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Notes
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
@@ -52,8 +52,6 @@ import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Notes
-import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.PowerOff
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
@@ -113,6 +111,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.core.net.toUri
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.core.view.doOnPreDraw
 import androidx.lifecycle.lifecycleScope
 import com.ubertracker.app.OneTimeEvent
 import com.ubertracker.app.R
@@ -128,12 +129,18 @@ import com.ubertracker.app.ui.theme.UberTrackerTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
-import androidx.core.view.doOnPreDraw
 
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val permissionLauncher = registerForActivityResult(
+                ActivityResultContracts.RequestPermission()
+            ) { /* Handle result if you want */ }
+
+            permissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+        }
 
         var isReady = false
 
@@ -279,7 +286,7 @@ fun MainScreen(viewModel: RideViewModel) {
                             ),
                             actions = {
                                 // --- NEW TRASH BUTTON ---
-                                IconButton(onClick = { currentScreen = "trash" }) {
+                                IconButton(/*onClick = { currentScreen = "trash"}*/onClick = { viewModel.testNotificationNow() } ) {
                                     Icon(Icons.Default.Delete, "Trash", tint = CyberGray)
                                 }
 
@@ -419,8 +426,7 @@ fun MainScreen(viewModel: RideViewModel) {
                     onEdit = {
                         rideToEdit = currentRide
                         rideDetailToShow = null
-                    },
-                    viewModel = viewModel
+                    }
                 )
             }
 
@@ -654,7 +660,7 @@ fun PendingScreen(
                                         }
                                     ) {
                                         Icon(
-                                            imageVector = if (isAttachment) Icons.Default.Download else Icons.Default.OpenInNew,
+                                            imageVector = if (isAttachment) Icons.Default.Download else Icons.AutoMirrored.Filled.OpenInNew,
                                             contentDescription = if (isAttachment) "Download PDF Receipt" else "View Receipt",
                                             tint = if (isAttachment) NeonGreen else CyberBlue // Green for download, Blue for link
                                         )
@@ -755,7 +761,8 @@ fun RideItem(
                                 }
                             } else {
                                 // Fallback: open URL directly
-                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(ride.receiptUrl ?: ""))
+                                val intent = Intent(Intent.ACTION_VIEW,
+                                    ride.receiptUrl.toUri())
                                 try {
                                     context.startActivity(intent)
                                 } catch (e: Exception) {
@@ -765,7 +772,7 @@ fun RideItem(
                         }
                     ) {
                         Icon(
-                            imageVector = if (isAttachment) Icons.Default.Download else Icons.Default.OpenInNew,
+                            imageVector = if (isAttachment) Icons.Default.Download else Icons.AutoMirrored.Filled.OpenInNew,
                             contentDescription = if (isAttachment) "Download PDF Receipt" else "View Receipt Link",
                             tint = if (isAttachment) CyberGreen else CyberBlue // Green for download, Blue for link
                         )
@@ -1096,7 +1103,7 @@ fun RideCard(ride: Ride, onDelete: () -> Unit, viewModel: RideViewModel? = null)
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Icon(Icons.Default.Notes, null, tint = Color.Gray, modifier = Modifier.size(16.dp))
+                    Icon(Icons.AutoMirrored.Filled.Notes, null, tint = Color.Gray, modifier = Modifier.size(16.dp))
                     Text(it, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
                 }
             }
@@ -1116,7 +1123,7 @@ fun RideCard(ride: Ride, onDelete: () -> Unit, viewModel: RideViewModel? = null)
                             }
                         } else {
                             // Fallback for old code - open URL directly
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                            val intent = Intent(Intent.ACTION_VIEW, url.toUri())
                             try {
                                 context.startActivity(intent)
                             } catch (e: Exception) {
@@ -1130,7 +1137,7 @@ fun RideCard(ride: Ride, onDelete: () -> Unit, viewModel: RideViewModel? = null)
                     )
                 ) {
                     Icon(
-                        if (isAttachment) Icons.Default.Download else Icons.Default.OpenInNew,
+                        if (isAttachment) Icons.Default.Download else Icons.AutoMirrored.Filled.OpenInNew,
                         null,
                         modifier = Modifier.size(18.dp)
                     )
@@ -1296,7 +1303,7 @@ fun SettingsDialog(viewModel: RideViewModel, onDismiss: () -> Unit) {
 }
 
 @Composable
-fun RideDetailsDialog(ride: Ride, onDismiss: () -> Unit, onEdit: () -> Unit, viewModel: RideViewModel? = null) {
+fun RideDetailsDialog(ride: Ride, onDismiss: () -> Unit, onEdit: () -> Unit) {
     Dialog(onDismissRequest = onDismiss) {
         Card(
             modifier = Modifier.fillMaxWidth(),
