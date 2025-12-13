@@ -28,11 +28,7 @@ class UberEmailParser : EmailParser {
         if (UBER_EMAIL_DOMAINS.any { lowerSender.contains(it) }) return true
 
         val isTrusted = trustedSenders.any { lowerSender.contains(it.lowercase()) }
-        if (isTrusted && lowerSubject.contains("uber")) {
-            return true
-        }
-
-        return false
+        return isTrusted && lowerSubject.contains("uber")
     }
 
     override fun parseEmail(message: Message): Ride? {
@@ -49,6 +45,7 @@ class UberEmailParser : EmailParser {
             val receiptUrl = extractPdfLink(doc)
             val route = extractRouteInfo(doc)
 
+            // Parse Date & Time from HTML (or fallback to metadata)
             val date = extractDate(message)
             val time = extractTripTime(doc) ?: "00:00"
 
@@ -102,6 +99,45 @@ class UberEmailParser : EmailParser {
     }
 
     override fun extractDate(message: Message): String {
+        // 1. Try to parse exact date from HTML body first
+        try {
+            val body = extractEmailBody(message)
+            if (body.isNotEmpty()) {
+                val doc = Jsoup.parse(body)
+                // Uber sends multiple <div class="date">. We check them all.
+                // Examples: "Dec 3, 2025", "5:55 pm", or "Dec 3, 2025 , 5:55 pm"
+                val dateElements = doc.select("div.date")
+
+                for (element in dateElements) {
+                    val rawText = element.text().trim()
+                    // Fix the space issue: "Dec 3, 2025 , 5:55 pm" -> "Dec 3, 2025, 5:55 pm"
+                    val cleanText = rawText.replace(" ,", ",")
+
+                    // Try Format 1: Combined Date & Time (Mobile view)
+                    try {
+                        val fullFormat = SimpleDateFormat("MMM d, yyyy, h:mm a", Locale.US)
+                        val dateObj = fullFormat.parse(cleanText)
+                        if (dateObj != null) {
+                            return SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(dateObj)
+                        }
+                    } catch (e: Exception) { /* Continue */ }
+
+                    // Try Format 2: Date Only (Desktop view)
+                    try {
+                        val dateFormat = SimpleDateFormat("MMM d, yyyy", Locale.US)
+                        val dateObj = dateFormat.parse(cleanText)
+                        // Ensure it's not just a time string like "5:55 pm" parsed as a date
+                        if (dateObj != null && cleanText.length > 8) {
+                            return SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(dateObj)
+                        }
+                    } catch (e: Exception) { /* Continue */ }
+                }
+            }
+        } catch (e: Exception) {
+            // Fallthrough
+        }
+
+        // 2. Fallback: Use email received metadata
         val timestamp = message.internalDate ?: System.currentTimeMillis()
         val date = Date(timestamp)
         return SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(date)

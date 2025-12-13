@@ -8,12 +8,15 @@ import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import java.text.SimpleDateFormat
+import java.util.Locale
 
 // Define your Neon Colors here so they are available everywhere
 val NeonPink = Color(0xFFFF00FF)
 val NeonGreen = Color(0xFF00FF99)
 val NeonBg = Color(0xFF121212) // Very dark grey/black
 val GlassBlack = Color(0xFF000000).copy(alpha = 0.7f) // 70% opaque black
+val ElectricBlue = Color(0xFF7DF9FF)
 
 // --- NO CLASS WRAPPER HERE ---
 
@@ -49,3 +52,14 @@ fun Modifier.neonGlow(
         }
     }
 )
+
+fun String.toUiDate(): String {
+    return try {
+        val inputFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        val outputFormat = SimpleDateFormat("dd-MM-yyyy", Locale.getDefault())
+        val date = inputFormat.parse(this)
+        outputFormat.format(date ?: return this)
+    } catch (e: Exception) {
+        this // Return original if parsing fails
+    }
+}

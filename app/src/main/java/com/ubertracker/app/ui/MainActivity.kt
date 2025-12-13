@@ -1,12 +1,17 @@
 package com.ubertracker.app.ui
 
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
+import android.animation.ObjectAnimator
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.view.View
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.animation.core.animate
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
@@ -21,6 +26,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -97,6 +103,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -121,9 +128,86 @@ import com.ubertracker.app.ui.theme.UberTrackerTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.core.view.doOnPreDraw
+
 
 class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+
+        var isReady = false
+
+        // --- KEEP SYSTEM SPLASH UNTIL COMPOSE IS READY ---
+        val splash = installSplashScreen()
+        splash.setKeepOnScreenCondition { !isReady }
+
+        splash.setOnExitAnimationListener { splashScreenView ->
+
+            // splashScreenView is of type SplashScreenView
+            val view = splashScreenView.view // get the underlying View
+
+            // Fade-out using ObjectAnimator
+            val fadeOut = ObjectAnimator.ofFloat(view, View.ALPHA, 0f)
+            fadeOut.duration = 250
+            fadeOut.addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    splashScreenView.remove() // remove splash after animation
+                }
+            })
+            fadeOut.start()
+        }
+
+
+
+
+        super.onCreate(savedInstanceState)
+
+        setContent {
+            UberTrackerTheme {
+
+                var isLoading by remember { mutableStateOf(true) }
+
+                // --- RELEASE SPLASH AFTER FIRST FRAME ---
+                val view = LocalView.current
+                LaunchedEffect(view) {
+                    // Wait until first Compose frame is drawn
+                    view.doOnPreDraw {
+                        isReady = true
+                    }
+
+                    // Keep your fake loading delay
+                    delay(1000)
+                    isLoading = false
+                }
+
+                if (isLoading) {
+                    LoadingScreen()
+                } else {
+                    MainScreen(viewModel)
+                }
+            }
+        }
+
+        lifecycleScope.launch {
+            viewModel.oneTimeEvent.collectLatest { event ->
+                when (event) {
+                    is OneTimeEvent.StartSignIn -> {
+                        signInLauncher.launch(event.signInIntent)
+                    }
+                    is OneTimeEvent.RequestGmailConsent -> {
+                        consentLauncher.launch(event.consentIntent)
+                    }
+                    is OneTimeEvent.GmailAuthFailed -> {
+                        // UI will handle this
+                    }
+                }
+            }
+        }
+    }
+
     private val viewModel: RideViewModel by viewModels()
+
+
 
     private val signInLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -141,46 +225,7 @@ class MainActivity : ComponentActivity() {
         viewModel.syncGmail()
     }
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
 
-        lifecycleScope.launch {
-            viewModel.oneTimeEvent.collectLatest { event ->
-                when (event) {
-                    is OneTimeEvent.StartSignIn -> {
-                        signInLauncher.launch(event.signInIntent)
-                    }
-                    is OneTimeEvent.RequestGmailConsent -> {
-                        // User needs to grant consent - launch the consent Intent
-                        consentLauncher.launch(event.consentIntent)
-                    }
-                    is OneTimeEvent.GmailAuthFailed -> {
-                        // Auth failure will be handled in the UI via state change
-                        // The connection state will be updated, triggering UI refresh
-                    }
-                }
-            }
-        }
-
-        setContent {
-
-            UberTrackerTheme {
-                var isLoading by remember { mutableStateOf(true) }
-                LaunchedEffect(Unit) {
-                    // Fake delay for effect (remove this when you have real data loading)
-                    delay(2000)
-                    isLoading = false
-                }
-                if (isLoading) {
-                    // Show the new animation
-                    LoadingScreen()
-                } else {
-                    // Show your actual App
-                    MainScreen(viewModel)
-                }
-            }
-        }
-    }
 }
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
@@ -471,7 +516,8 @@ fun PendingScreen(
     val state = rememberPullToRefreshState()
 
     Scaffold(
-        containerColor = Color.Transparent, // Transparent so background shows through glass
+        containerColor = Color.Transparent,
+        contentWindowInsets = WindowInsets(0.dp),
         bottomBar = {
             if (selectedIds.isNotEmpty()) {
                 Row(
@@ -538,8 +584,11 @@ fun PendingScreen(
 
                 items(rides) { ride ->
                     // Logic: Green if selected, Pink if not
-                    val glowColor = if (selectedIds.contains(ride.id)) NeonGreen else NeonPink
-
+                    val glowColor = if (selectedIds.contains(ride.id)) {
+                        NeonGreen
+                    } else {
+                        if (ride.isBusiness) NeonPink else ElectricBlue
+                    }
                     // --- THE NEW NEON CARD IMPLEMENTATION ---
                     NeonCard(
                         glowColor = glowColor,
@@ -572,7 +621,7 @@ fun PendingScreen(
 
                             // Date & Address
                             Column(modifier = Modifier.padding(start = 12.dp).weight(1f)) {
-                                Text(ride.date, color = Color.White, fontWeight = FontWeight.Bold)
+                                Text(ride.date.toUiDate(), color = Color.White, fontWeight = FontWeight.Bold)
                                 Text(
                                     ride.fromAddress,
                                     color = Color.Gray  ,
@@ -686,7 +735,7 @@ fun RideItem(
                 )
             )
             Column(modifier = Modifier.weight(1f).padding(start = 8.dp)) {
-                Text(ride.date, style = MaterialTheme.typography.titleMedium, color = Color.White)
+                Text(ride.date.toUiDate(), style = MaterialTheme.typography.titleMedium, color = Color.White)
                 Text(ride.fromAddress, style = MaterialTheme.typography.bodySmall, color = CyberGray, maxLines = 1)
                 Text("₹${ride.fare}", style = MaterialTheme.typography.titleLarge, color = CyberPink)
             }
@@ -1009,7 +1058,7 @@ fun RideCard(ride: Ride, onDelete: () -> Unit, viewModel: RideViewModel? = null)
                             color = Color.White
                         )
                         Text(
-                            "${ride.date} • ${ride.time ?: "N/A"}",
+                            "${ride.date.toUiDate()} • ${ride.time ?: "N/A"}",
                             style = MaterialTheme.typography.bodySmall,
                             color = Color.Gray
                         )
@@ -1284,7 +1333,7 @@ fun RideDetailsDialog(ride: Ride, onDismiss: () -> Unit, onEdit: () -> Unit, vie
                     )
 
                 // Specific Fields Requested
-                DetailRow("DATE", "${ride.date} at ${ride.time ?: "N/A"}")
+                DetailRow("DATE", "${ride.date.toUiDate()} at ${ride.time ?: "N/A"}")
                 DetailRow("AMOUNT", "₹${ride.fare}")
                 DetailRow("PICKUP", ride.fromAddress)
                 DetailRow("DROP", ride.toAddress)

@@ -1,6 +1,12 @@
 package com.ubertracker.app.ui
 
-import androidx.compose.animation.core.*
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -12,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -20,16 +27,19 @@ import androidx.compose.ui.unit.sp
 import com.ubertracker.app.R
 import com.ubertracker.app.ui.theme.CyberGreen
 import kotlinx.coroutines.delay
+import kotlin.math.PI
+import kotlin.math.sin
 import kotlin.random.Random
 
 // --- USER TUNED OFFSETS ---
 private val LOGO_SIZE = 288.dp
-private val LOGO_OFFSET_Y = 19.dp
 private const val VIBRATION_STRENGTH = -1f
 
 // Particle Alignment
-private const val REAR_BUMPER_OFFSET_X = 85f
-private const val EXHAUST_OFFSET_Y = 0f
+private const val REAR_BUMPER_OFFSET_X = 120f
+private const val EXHAUST_OFFSET_Y = 15f
+
+private val LOGO_OFFSET_Y = 22.dp
 
 @Composable
 fun LoadingScreen() {
@@ -51,12 +61,12 @@ fun LoadingScreen() {
                 // Move UP
                 carOffsetAnim.animateTo(
                     targetValue = VIBRATION_STRENGTH,
-                    animationSpec = tween(durationMillis = 40, easing = LinearEasing)
+                    animationSpec = tween(40, easing = LinearEasing)
                 )
                 // Move DOWN (Back to 0)
                 carOffsetAnim.animateTo(
                     targetValue = 0f,
-                    animationSpec = tween(durationMillis = 40, easing = LinearEasing)
+                    animationSpec = tween(40, easing = LinearEasing)
                 )
             }
         }
@@ -87,12 +97,14 @@ fun LoadingScreen() {
         label = "particles"
     )
 
-    val particles = remember { List(40) { NeonParticle() } }
+    // --- PARTICLES ---
+    val exhaustParticles = remember { List(20) { NeonParticle() } }
+    val speedParticles = remember { List(10) { NeonParticle(ySpread = Random.nextFloat() * LOGO_SIZE.value - LOGO_SIZE.value / 2) } }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black), // Matches logo background
+            .background(Color.Black),
         contentAlignment = Alignment.Center
     ) {
 
@@ -100,25 +112,38 @@ fun LoadingScreen() {
         Canvas(modifier = Modifier.fillMaxSize()) {
             val centerX = size.width / 2
             val centerY = size.height / 2
+            val riseAmount = Random.nextFloat() * 60f + 30f
 
             // Calculate spawn point based on Tuning Knobs
             val carRearX = centerX - REAR_BUMPER_OFFSET_X
             val carExhaustY = centerY + EXHAUST_OFFSET_Y
 
-            particles.forEach { p ->
-                val currentT = (p.initialOffset + particleProgress) % 1f
-
-                // Move Left (Backwards)
-                val xPos = carRearX - (currentT * 850f)
-
-                // Spawn with vertical spread (tires/exhaust area)
-                val yPos = carExhaustY + p.ySpread
-
-                // Fade out
-                val alpha = (1f - currentT) * p.opacity
+            // --- Speed streak particles along car ---
+            speedParticles.forEach { p ->
+                val t = (p.initialOffset + particleProgress) % 1f
+                val xPos = centerX + LOGO_SIZE.value / 2 - t * 600f + 100f
+                val yPos = centerY - LOGO_SIZE.value / 2 + p.ySpread / 4 + 80f - t * riseAmount +
+                        sin(t * 2 * PI).toFloat() * 10f
+                val alpha = (1f - t) * p.opacity
 
                 drawLine(
-                    color = CyberGreen.copy(alpha = alpha),
+                    color = Color(0xFF67fb79).copy(alpha = alpha),
+                    start = Offset(xPos, yPos),
+                    end = Offset(xPos - p.length, yPos),
+                    strokeWidth = p.thickness / 2,
+                    cap = StrokeCap.Round
+                )
+            }
+
+            // --- Exhaust particles ---
+            exhaustParticles.forEach { p ->
+                val t = (p.initialOffset + particleProgress) % 1f
+                val xPos = carRearX - t * 400f
+                val yPos = carExhaustY + p.ySpread
+                val alpha = (1f - t) * p.opacity
+
+                drawLine(
+                    color = Color(0xFF67fb79).copy(alpha = alpha),
                     start = Offset(xPos, yPos),
                     end = Offset(xPos - p.length, yPos),
                     strokeWidth = p.thickness,
@@ -127,7 +152,7 @@ fun LoadingScreen() {
             }
         }
 
-        // --- LAYER 2: CAR LOGO ---
+        // --- LAYER 2: CAR LOGO + TEXT ---
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
@@ -137,12 +162,13 @@ fun LoadingScreen() {
             Box(
                 modifier = Modifier
                     .size(LOGO_SIZE)
-                    .offset(y = carDy.dp) // Random Vibration
+                    .offset(y = carDy.dp)
             ) {
                 Image(
-                    painter = painterResource(id = R.drawable.neon_car_logo),
+                    painter = painterResource(R.drawable.neon_car_logo_sq),
                     contentDescription = "Loading",
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Fit
                 )
             }
 
@@ -151,7 +177,7 @@ fun LoadingScreen() {
             // --- LAYER 3: TEXT ---
             Text(
                 text = "SYSTEM_INITIALIZING...",
-                color = CyberGreen.copy(alpha = textAlpha),
+                color = Color(0xFF67fb79).copy(alpha = textAlpha),
                 fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.Bold,
                 fontSize = 14.sp,
@@ -162,9 +188,9 @@ fun LoadingScreen() {
 }
 
 data class NeonParticle(
-    val ySpread: Float = Random.nextFloat() * 50f - 25f,
+    val ySpread: Float = Random.nextFloat() * 10f,
     val length: Float = Random.nextFloat() * 30f + 10f,
-    val thickness: Float = Random.nextFloat() * 4f + 2f,
+    val thickness: Float = Random.nextFloat() * 0.8f + 1f,
     val initialOffset: Float = Random.nextFloat(),
     val opacity: Float = Random.nextFloat() * 0.6f + 0.4f
 )

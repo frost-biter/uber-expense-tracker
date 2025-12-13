@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.map
 import java.text.SimpleDateFormat
 import java.util.*
+import androidx.core.net.toUri
 
 class RideViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -92,7 +93,7 @@ class RideViewModel(application: Application) : AndroidViewModel(application) {
                     rideDao.updateClaimStatus(ids.toList(), true)
                     clearSelection()
 
-                } catch (e: Exception) {
+                } catch (_: Exception) {
                     // ignore
                 }
             }
@@ -154,7 +155,7 @@ class RideViewModel(application: Application) : AndroidViewModel(application) {
     private fun scheduleDailyGmailSyncs() {
         viewModelScope.launch {
             try {
-                GmailSyncWorker.scheduleDailySyncs(getApplication<Application>())
+                GmailSyncWorker.scheduleDailySyncs(getApplication())
             } catch (e: Exception) {
                 // ignore
             }
@@ -192,7 +193,7 @@ class RideViewModel(application: Application) : AndroidViewModel(application) {
                         rideDao.insertRide(ride)
                     }
                 }
-            } catch (e: com.ubertracker.app.gmail.GmailService.AuthenticationException) {
+            } catch (e: GmailService.AuthenticationException) {
                 _gmailConnected.value = false
 
                 if (e.intent != null) {
@@ -227,7 +228,7 @@ class RideViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             try {
                 rideDao.updateRide(ride)
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 // ignore
             }
         }
@@ -342,7 +343,7 @@ class RideViewModel(application: Application) : AndroidViewModel(application) {
                     false
                 }
             } else {
-                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))
+                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, url.toUri())
                 intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
                 getApplication<Application>().startActivity(intent)
                 true

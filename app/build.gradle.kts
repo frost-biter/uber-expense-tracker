@@ -70,6 +70,7 @@ dependencies {
     implementation(libs.androidx.core.ktx.v1120)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.core.splashscreen)
 
     // Jetpack Compose
     implementation(platform(libs.compose.bom))
@@ -89,10 +90,12 @@ dependencies {
     implementation(libs.androidx.ui)
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.compose.ui.unit)
+    implementation(libs.androidx.compose.foundation.layout)
+    implementation(libs.androidx.compose.animation.core)
     ksp(libs.androidx.room.compiler)
 
     // SQLCipher for database encryption (optional)
-    implementation("net.zetetic:sqlcipher-android:4.6.1")
+    implementation("net.zetetic:sqlcipher-android:4.11.0")
     implementation(libs.androidx.sqlite.ktx)
 
     // Encrypted SharedPreferences
